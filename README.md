@@ -7,6 +7,7 @@ Open Windows Software for use with DATV tuner variants based on the Minitiouner 
 [Compiled Beta/Test Versions](https://www.buymeacoffee.com/zr6tg/posts)
 
 
+=====================================================
 SV8ARJ Tests :
 Minor UI enhansments. Only for PicoTunner (maybe Mini)
 
