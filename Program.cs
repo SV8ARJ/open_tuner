@@ -10,6 +10,9 @@ namespace opentuner
 {
     static class Program
     {
+
+        private static MainForm _mainForm; // TAG_ARJ
+
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
@@ -44,7 +47,15 @@ namespace opentuner
 
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new MainForm());
+
+                // TAG_ARJ
+                //
+                _mainForm = new MainForm();
+                Application.Run(_mainForm);
+
+                // Application.Run(new MainForm());  // TAG_ARJ
+
+
             }
             catch (Exception ex)
             {
@@ -55,5 +66,12 @@ namespace opentuner
                 Log.CloseAndFlush();
             }
         }
+
+        // Property to access the MainForm reference
+        public static MainForm MainFormInstance
+        {
+            get { return _mainForm; }
+        }
+
     }
 }
