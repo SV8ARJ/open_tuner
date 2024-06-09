@@ -84,6 +84,8 @@ namespace opentuner.MediaSources.Minitiouner
         private string last_dbm_1 = "";
         private string last_mer_1 = "";
 
+        private string info1_string = "";   // TAG_ARJ
+        private string info2_string = "";   // TAG_ARJ
 
         private VideoChangeCallback VideoChangeCB;
 

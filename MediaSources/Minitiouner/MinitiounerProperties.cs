@@ -128,7 +128,7 @@ namespace opentuner.MediaSources.Minitiouner
             dynamicPropertyGroup.OnMediaButtonPressed += DynamicPropertyGroup_OnMediaButtonPressed;
             dynamicPropertyGroup.AddItem("demodstate", "Demod State", Color.PaleVioletRed);
             dynamicPropertyGroup.AddItem("mer", "Mer");
-            //dynamicPropertyGroup.AddItem("db_margin", "db Margin");
+            dynamicPropertyGroup.AddItem("db_margin", "db Margin");     // TAG_ARJ - was comment
             dynamicPropertyGroup.AddItem("rf_input_level", "RF Input Level");
             dynamicPropertyGroup.AddItem("rf_input", "RF Input", _genericContextStrip);
             dynamicPropertyGroup.AddItem("requested_freq_" + tuner.ToString(), "Requested Freq", _genericContextStrip);
@@ -346,11 +346,15 @@ namespace opentuner.MediaSources.Minitiouner
             {
                 last_service_name_0 = ts_status.ServiceName;
                 last_service_provider_0 = ts_status.ServiceProvider;
+
+                info1_string = last_service_name_0;     // TAG_ARJ
             }
             else
             {
                 last_service_name_1 = ts_status.ServiceName;
                 last_service_provider_1 = ts_status.ServiceProvider;
+
+                info2_string = last_service_name_1;     // TAG_ARJ
             }
 
         }
@@ -374,6 +378,8 @@ namespace opentuner.MediaSources.Minitiouner
 
         private void UpdateTunerProperties(TunerStatus new_status)
         {
+            info1_string = "";  // TAG_ARJ
+            info2_string = "";  // TAG_ARJ
 
             double dbmargin = 0;
             double mer = Convert.ToDouble(new_status.T1P2_mer) / 10;
@@ -492,14 +498,25 @@ namespace opentuner.MediaSources.Minitiouner
             last_mer_0 = mer.ToString();
 
             _tuner1_properties.UpdateBigLabel(db_margin_text);
-            //_tuner1_properties.UpdateValue("db_margin", db_margin_text);
+            _tuner1_properties.UpdateValue("db_margin", db_margin_text);    // TAG_ARJ - was comment
             _tuner1_properties.UpdateValue("modcod", modcod_text);
 
             var data1 = _tuner1_properties.GetAll();
             data1.Add("frequency", GetFrequency(0, true).ToString());
             OnSourceData?.Invoke(data1, "Tuner 1");
 
-
+            // Program.MainFormInstance.updateD("label_Info1|" +               // TAG_ARJ
+            //     _tuner1_properties.GetValue("service_name") + " - " +
+            //     // (last_dbm_0 == "" ? "" : " - " +last_dbm_0 + " | " )+
+            //     _tuner1_properties.GetValue("db_margin") + " | " +
+            //     "MER: " + _tuner1_properties.GetValue("mer") +
+            //     (_tuner1_properties.GetValue("modcod") == "Unknown" ? "" : " - " + _tuner1_properties.GetValue("modcod") )+
+            //     (_tuner1_properties.GetValue("video_resolution")  == "" ? "" : " - " + _tuner1_properties.GetValue("video_resolution") )+
+            //     (_tuner1_properties.GetValue("video_codec") == "" ? "" : " - " + _tuner1_properties.GetValue("video_codec")) +
+            //     (_tuner1_properties.GetValue("requested_freq_1") == "" ? "" : " - " + _tuner1_properties.GetValue("requested_freq_1")) +
+            //     " - " + _tuner1_properties.GetValue("symbol_rate")
+            // );
+            updatePlayerLabels("label_Info1", _tuner1_properties);  // TAG_ARJ
 
             if (ts_devices == 2 && _tuner2_properties != null)
             {
@@ -592,13 +609,26 @@ namespace opentuner.MediaSources.Minitiouner
                 last_mer_1 = mer2.ToString();
 
                 _tuner2_properties.UpdateBigLabel(db_margin_text);
-                //_tuner2_properties.UpdateValue("db_margin", db_margin_text);
+                _tuner2_properties.UpdateValue("db_margin", db_margin_text);        // TAG_ARJ was comment
                 _tuner2_properties.UpdateValue("modcod", modcod_text);
 
                 var data2 = _tuner2_properties.GetAll();
                 data2.Add("frequency", GetFrequency(1, true).ToString());
                 OnSourceData?.Invoke(data2, "Tuner 2");
 
+                // Program.MainFormInstance.updateD("label_Info2|" +               // TAG_ARJ
+                //     _tuner2_properties.GetValue("service_name") + " - " +
+                //     // (last_dbm_1 == "" ? "" : " - " + last_dbm_1 + " | ") +
+                //     _tuner2_properties.GetValue("db_margin") + " | " +
+                //     "MER: " + _tuner2_properties.GetValue("mer") +
+                //     (_tuner2_properties.GetValue("modcod") == "Unknown" ? "" : " - " + _tuner2_properties.GetValue("modcod")) +
+                //     (_tuner2_properties.GetValue("video_resolution") == "" ? "" : " - " + _tuner2_properties.GetValue("video_resolution")) +
+                //     (_tuner2_properties.GetValue("video_codec") == "" ? "" : " - " + _tuner2_properties.GetValue("video_codec")) +
+                //     (_tuner2_properties.GetValue("requested_freq_2") == "" ? "" : " - " + _tuner2_properties.GetValue("requested_freq_2")) +
+                //     " - " + _tuner2_properties.GetValue("symbol_rate")
+                // );
+
+                updatePlayerLabels("label_Info2", _tuner2_properties);  // TAG_ARJ
             }
         }
 
@@ -811,5 +841,24 @@ namespace opentuner.MediaSources.Minitiouner
         {
             _frequency_presets = FrequencyPresets;
         }
+
+        // TAG_ARJ
+        //
+        private void updatePlayerLabels( string labelName, DynamicPropertyGroup tuner_properties)
+        {
+            Program.MainFormInstance.updateD(labelName + "|" +      // TODO   !! Attention "|" is used as seperator, should be escaped in calling and here
+                tuner_properties.GetValue("service_name") + " - " +
+                tuner_properties.GetValue("db_margin") + " | " +
+                "MER: " + tuner_properties.GetValue("mer") +
+                (tuner_properties.GetValue("modcod") == "Unknown" ? "" : " - " + tuner_properties.GetValue("modcod")) +
+                (tuner_properties.GetValue("video_resolution") == "" ? "" : " - " + tuner_properties.GetValue("video_resolution")) +
+                (tuner_properties.GetValue("video_codec") == "" ? "" : " - " + tuner_properties.GetValue("video_codec")) +
+                (tuner_properties.GetValue("requested_freq_1") == "" ? "" : " - " + tuner_properties.GetValue("requested_freq_1")) +    // DIRTY trick because of naming difference... :(
+                (tuner_properties.GetValue("requested_freq_2") == "" ? "" : " - " + tuner_properties.GetValue("requested_freq_2")) +
+                " - " + tuner_properties.GetValue("symbol_rate")
+            );
+        }
+        //
+        // TAG_ARJ_
     }
 }
