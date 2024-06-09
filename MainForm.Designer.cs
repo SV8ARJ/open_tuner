@@ -33,6 +33,7 @@
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.SourcePage = new System.Windows.Forms.TabPage();
+            this.button2 = new System.Windows.Forms.Button();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
             this.linkPicoTuner = new System.Windows.Forms.Label();
             this.link2ndTS = new System.Windows.Forms.Label();
@@ -66,12 +67,15 @@
             this.comboAvailableSources = new System.Windows.Forms.ComboBox();
             this.label1 = new System.Windows.Forms.Label();
             this.PropertiesPage = new System.Windows.Forms.TabPage();
+            this.button1 = new System.Windows.Forms.Button();
             this.debugPage = new System.Windows.Forms.TabPage();
             this.dbgListBox = new System.Windows.Forms.ListBox();
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.splitContainer3 = new System.Windows.Forms.SplitContainer();
             this.splitContainer4 = new System.Windows.Forms.SplitContainer();
+            this.label_Info1 = new System.Windows.Forms.Label();
             this.splitContainer5 = new System.Windows.Forms.SplitContainer();
+            this.label_Info2 = new System.Windows.Forms.Label();
             this.spectrum = new System.Windows.Forms.PictureBox();
             this.contextSpectrumMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.autoTuneToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -79,6 +83,7 @@
             this.autoTimedToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.autoHoldToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
+            this.INFO = new System.Windows.Forms.ToolStripMenuItem();
             this.openTunerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.settingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuManageFrequencyPresets = new System.Windows.Forms.ToolStripMenuItem();
@@ -91,6 +96,8 @@
             this.commandsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.systemFunctionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.configureCallsignToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -100,6 +107,7 @@
             this.groupBox3.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox1.SuspendLayout();
+            this.PropertiesPage.SuspendLayout();
             this.debugPage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).BeginInit();
             this.splitContainer2.Panel1.SuspendLayout();
@@ -110,8 +118,10 @@
             this.splitContainer3.Panel2.SuspendLayout();
             this.splitContainer3.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer4)).BeginInit();
+            this.splitContainer4.Panel1.SuspendLayout();
             this.splitContainer4.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer5)).BeginInit();
+            this.splitContainer5.Panel1.SuspendLayout();
             this.splitContainer5.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.spectrum)).BeginInit();
             this.contextSpectrumMenu.SuspendLayout();
@@ -146,10 +156,17 @@
             // 
             resources.ApplyResources(this.SourcePage, "SourcePage");
             this.SourcePage.BackColor = System.Drawing.Color.Transparent;
+            this.SourcePage.Controls.Add(this.button2);
             this.SourcePage.Controls.Add(this.groupBox3);
             this.SourcePage.Controls.Add(this.groupBox2);
             this.SourcePage.Controls.Add(this.groupBox1);
             this.SourcePage.Name = "SourcePage";
+            // 
+            // button2
+            // 
+            resources.ApplyResources(this.button2, "button2");
+            this.button2.Name = "button2";
+            this.button2.UseVisualStyleBackColor = true;
             // 
             // groupBox3
             // 
@@ -415,7 +432,16 @@
             // 
             resources.ApplyResources(this.PropertiesPage, "PropertiesPage");
             this.PropertiesPage.BackColor = System.Drawing.Color.Transparent;
+            this.PropertiesPage.Controls.Add(this.button1);
             this.PropertiesPage.Name = "PropertiesPage";
+            // 
+            // button1
+            // 
+            resources.ApplyResources(this.button1, "button1");
+            this.button1.Name = "button1";
+            this.toolTip1.SetToolTip(this.button1, resources.GetString("button1.ToolTip"));
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click_1);
             // 
             // debugPage
             // 
@@ -443,6 +469,9 @@
             // splitContainer2.Panel2
             // 
             this.splitContainer2.Panel2.Controls.Add(this.spectrum);
+            this.toolTip1.SetToolTip(this.splitContainer2, resources.GetString("splitContainer2.ToolTip"));
+            this.splitContainer2.SplitterMoved += new System.Windows.Forms.SplitterEventHandler(this.splitContainer2_SplitterMoved);
+            this.splitContainer2.DoubleClick += new System.EventHandler(this.splitContainer2_DoubleClick);
             // 
             // splitContainer3
             // 
@@ -458,6 +487,9 @@
             // 
             this.splitContainer3.Panel2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(192)))), ((int)(((byte)(192)))));
             this.splitContainer3.Panel2.Controls.Add(this.splitContainer5);
+            this.toolTip1.SetToolTip(this.splitContainer3, resources.GetString("splitContainer3.ToolTip"));
+            this.splitContainer3.SplitterMoved += new System.Windows.Forms.SplitterEventHandler(this.splitContainer3_SplitterMoved);
+            this.splitContainer3.DoubleClick += new System.EventHandler(this.splitContainer3_DoubleClick);
             // 
             // splitContainer4
             // 
@@ -468,10 +500,23 @@
             // splitContainer4.Panel1
             // 
             this.splitContainer4.Panel1.BackColor = System.Drawing.Color.Black;
+            this.splitContainer4.Panel1.Controls.Add(this.label_Info1);
             // 
             // splitContainer4.Panel2
             // 
             this.splitContainer4.Panel2.BackColor = System.Drawing.Color.Black;
+            // 
+            // label_Info1
+            // 
+            resources.ApplyResources(this.label_Info1, "label_Info1");
+            this.label_Info1.BackColor = System.Drawing.Color.Transparent;
+            this.label_Info1.ForeColor = System.Drawing.Color.SaddleBrown;
+            this.label_Info1.Name = "label_Info1";
+            this.toolTip1.SetToolTip(this.label_Info1, resources.GetString("label_Info1.ToolTip"));
+            this.label_Info1.Click += new System.EventHandler(this.label_Info1_Click);
+            this.label_Info1.DoubleClick += new System.EventHandler(this.label_Info1_DoubleClick);
+            this.label_Info1.MouseEnter += new System.EventHandler(this.label_Info1_MouseEnter);
+            this.label_Info1.MouseLeave += new System.EventHandler(this.label_Info1_MouseLeave);
             // 
             // splitContainer5
             // 
@@ -482,10 +527,23 @@
             // splitContainer5.Panel1
             // 
             this.splitContainer5.Panel1.BackColor = System.Drawing.Color.Black;
+            this.splitContainer5.Panel1.Controls.Add(this.label_Info2);
             // 
             // splitContainer5.Panel2
             // 
             this.splitContainer5.Panel2.BackColor = System.Drawing.Color.Black;
+            // 
+            // label_Info2
+            // 
+            resources.ApplyResources(this.label_Info2, "label_Info2");
+            this.label_Info2.BackColor = System.Drawing.Color.Transparent;
+            this.label_Info2.ForeColor = System.Drawing.Color.SaddleBrown;
+            this.label_Info2.Name = "label_Info2";
+            this.toolTip1.SetToolTip(this.label_Info2, resources.GetString("label_Info2.ToolTip"));
+            this.label_Info2.Click += new System.EventHandler(this.label_Info2_Click);
+            this.label_Info2.DoubleClick += new System.EventHandler(this.label_Info2_DoubleClick);
+            this.label_Info2.MouseEnter += new System.EventHandler(this.label_Info2_MouseEnter);
+            this.label_Info2.MouseLeave += new System.EventHandler(this.label_Info2_MouseLeave);
             // 
             // spectrum
             // 
@@ -494,13 +552,14 @@
             resources.ApplyResources(this.spectrum, "spectrum");
             this.spectrum.Name = "spectrum";
             this.spectrum.TabStop = false;
+            this.spectrum.Click += new System.EventHandler(this.spectrum_Click);
             // 
             // contextSpectrumMenu
             // 
             this.contextSpectrumMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.autoTuneToolStripMenuItem});
-            this.contextSpectrumMenu.Name = "contextSpectrumMenu";
             resources.ApplyResources(this.contextSpectrumMenu, "contextSpectrumMenu");
+            this.contextSpectrumMenu.Name = "contextSpectrumMenu";
             // 
             // autoTuneToolStripMenuItem
             // 
@@ -534,11 +593,21 @@
             // menuStrip1
             // 
             this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.INFO,
             this.openTunerToolStripMenuItem,
             this.qO100WidebandChatToolStripMenuItem,
             this.plutoToolStripMenuItem});
             resources.ApplyResources(this.menuStrip1, "menuStrip1");
             this.menuStrip1.Name = "menuStrip1";
+            // 
+            // INFO
+            // 
+            this.INFO.Name = "INFO";
+            resources.ApplyResources(this.INFO, "INFO");
+            this.INFO.Click += new System.EventHandler(this.INFO_Click);
+            this.INFO.MouseDown += new System.Windows.Forms.MouseEventHandler(this.INFO_MouseDown);
+            this.INFO.MouseEnter += new System.EventHandler(this.INFO_MouseEnter);
+            this.INFO.MouseLeave += new System.EventHandler(this.INFO_MouseLeave);
             // 
             // openTunerToolStripMenuItem
             // 
@@ -618,6 +687,11 @@
             resources.ApplyResources(this.configureCallsignToolStripMenuItem, "configureCallsignToolStripMenuItem");
             this.configureCallsignToolStripMenuItem.Click += new System.EventHandler(this.configureCallsignToolStripMenuItem_Click);
             // 
+            // contextMenuStrip1
+            // 
+            this.contextMenuStrip1.Name = "contextMenuStrip1";
+            resources.ApplyResources(this.contextMenuStrip1, "contextMenuStrip1");
+            // 
             // MainForm
             // 
             resources.ApplyResources(this, "$this");
@@ -640,6 +714,7 @@
             this.groupBox2.PerformLayout();
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
+            this.PropertiesPage.ResumeLayout(false);
             this.debugPage.ResumeLayout(false);
             this.splitContainer2.Panel1.ResumeLayout(false);
             this.splitContainer2.Panel2.ResumeLayout(false);
@@ -649,8 +724,12 @@
             this.splitContainer3.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer3)).EndInit();
             this.splitContainer3.ResumeLayout(false);
+            this.splitContainer4.Panel1.ResumeLayout(false);
+            this.splitContainer4.Panel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer4)).EndInit();
             this.splitContainer4.ResumeLayout(false);
+            this.splitContainer5.Panel1.ResumeLayout(false);
+            this.splitContainer5.Panel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer5)).EndInit();
             this.splitContainer5.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.spectrum)).EndInit();
@@ -687,7 +766,6 @@
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.TabPage PropertiesPage;
         private System.Windows.Forms.SplitContainer splitContainer2;
-        private System.Windows.Forms.PictureBox spectrum;
         private System.Windows.Forms.SplitContainer splitContainer3;
         private System.Windows.Forms.SplitContainer splitContainer4;
         private System.Windows.Forms.SplitContainer splitContainer5;
@@ -725,6 +803,14 @@
         private System.Windows.Forms.CheckBox checkBox2;
         private System.Windows.Forms.CheckBox checkBox1;
         private System.Windows.Forms.ToolStripMenuItem menuManageFrequencyPresets;
+        private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
+        private System.Windows.Forms.ToolStripMenuItem INFO;
+        private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.PictureBox spectrum;
+        private System.Windows.Forms.ToolTip toolTip1;
+        private System.Windows.Forms.Label label_Info1;
+        private System.Windows.Forms.Label label_Info2;
     }
 }
 

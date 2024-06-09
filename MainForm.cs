@@ -29,6 +29,7 @@ using static opentuner.signal;
 using System.Runtime.CompilerServices;
 using Vortice.MediaFoundation;
 using Serilog;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace opentuner
 {
@@ -616,7 +617,7 @@ namespace opentuner
 
         private void quitToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Application.Exit();
+            System.Windows.Forms.Application.Exit();    // TAG_ARJ
         }
 
         private void settingsToolStripMenuItem_Click(object sender, EventArgs e)
@@ -932,6 +933,7 @@ namespace opentuner
             splitContainer1.SplitterDistance = _settings.gui_main_splitter_position;
 
             videoSource.UpdateFrequencyPresets(stored_frequencies);
+
         }
 
         private void btnSourceSettings_Click(object sender, EventArgs e)
@@ -1095,6 +1097,188 @@ namespace opentuner
                 videoSource.UpdateFrequencyPresets(stored_frequencies);
             }
         }
+
+
+
+        // TAG_ARJ
+        //
+        private Boolean panelHiden = false;
+        private Boolean spectrumHiden = false;
+
+        private void INFO_MouseEnter(object sender, EventArgs e)
+        {
+            //splitContainer1.Panel1Collapsed = false;
+            splitContainer2.Panel2Collapsed = false;
+
+            this.toolTip1.Show("Toggle left panel visibility. Right click to toggle Frequency Band.", this, 50, 50, 2000);  // TODO Move to resources
+
+        }
+
+        private void INFO_MouseLeave(object sender, EventArgs e)
+        {
+            splitContainer1.Panel1Collapsed = panelHiden;
+            splitContainer2.Panel2Collapsed = spectrumHiden && spectrumHiden;
+        }
+
+
+        private void INFO_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right) spectrumHiden = !spectrumHiden;
+            if (e.Button == MouseButtons.Left) panelHiden = !panelHiden;
+
+
+            splitContainer1.Panel1Collapsed = panelHiden;
+            splitContainer2.Panel2Collapsed = spectrumHiden && panelHiden;
+
+            INFO.Text = ( panelHiden ? "Show Panel" : "Hide Panel");
+
+        }
+
+
+
+
+        private void spectrum_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        public void updateD(string s)
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(new Action<string>(updateD), new object[] { s });
+            }
+            else
+            {
+                // this.["label_Info1"].Text = s;
+                try
+                {
+
+                    string[] parts = s.Split('|');
+
+                    Control[] controls = this.Controls.Find(parts[0], true);
+                    if (controls.Length > 0)
+                    {
+                        controls[0].Text = parts[1];
+                        // toolTip1.SetToolTip(controls[0], parts[2]);
+
+                        if (controls[0].ForeColor == Color.White) controls[0].Text += parts[2]; // Yes, Ι am ashamed...
+
+                        // Indicate muted or not - TODO prperly - this is a hack
+                        //
+                        int  tmpPlayerIndex = ( parts[0] == "label_Info1" ? 0 : 1 );
+                        if (_mediaPlayers[tmpPlayerIndex].GetVolume() != 0)     controls[0].Text += " \uD83D\uDD0A";
+                    }
+
+                }
+                catch (Exception ex) { }
+                    
+            }
+
+        }
+
+        private void label_Info1_MouseEnter(object sender, EventArgs e)
+        {
+            label_Info1.ForeColor = Color.White;
+            // label_Info1.Text += toolTip1.GetToolTip(label_Info1);
+        }
+
+        private void label_Info1_MouseLeave(object sender, EventArgs e)
+        {
+            label_Info1.ForeColor = Color.SaddleBrown;
+        }
+
+        private void label_Info2_MouseEnter(object sender, EventArgs e)
+        {
+            label_Info2.ForeColor = Color.White;
+        }
+
+        private void label_Info2_MouseLeave(object sender, EventArgs e)
+        {
+            label_Info2.ForeColor = Color.SaddleBrown;
+        }
+
+
+
+        int tmpVolume1 = 0;
+        private void button1_Click_1(object sender, EventArgs e)
+        {
+            // splitContainer2.Panel2Collapsed = !splitContainer2.Panel2Collapsed ;
+            // spectrum.Visible = false;
+            // splitContainer2.Panel2Collapsed = true;
+            // splitContainer2.SplitterDistance = splitContainer2.Height - 100;
+            // The SplitterPanel's height cannot be set explicitly. Set the SplitterDistance on the SplitContainer instead.
+            // splitContainer2.Panel2Collapsed = panelHiden;
+
+            // ReplaceLabelWithTransparentLabel();
+
+            tmpVolume1 =  _mediaPlayers[0].GetVolume();
+            if (_mediaPlayers[0].GetVolume() == 0) 
+                _mediaPlayers[0].SetVolume(100);
+            else
+                _mediaPlayers[0].SetVolume(0);
+            
+        }
+
+        private void INFO_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label_Info1_Click(object sender, EventArgs e)
+        {
+            if (_mediaPlayers[0].GetVolume() == 0)
+                _mediaPlayers[0].SetVolume(100);
+            else
+                _mediaPlayers[0].SetVolume(0);
+        }
+
+        private void label_Info2_Click(object sender, EventArgs e)
+        {
+            if (_mediaPlayers[1].GetVolume() == 0)
+                _mediaPlayers[1].SetVolume(100);
+            else
+                _mediaPlayers[1].SetVolume(0);
+        }
+
+        private void splitContainer3_SplitterMoved(object sender, SplitterEventArgs e)
+        {
+
+        }
+
+        private void splitContainer3_DoubleClick(object sender, EventArgs e)
+        {
+            splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.5);
+        }
+
+        private void label_Info1_DoubleClick(object sender, EventArgs e)
+        {
+            splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.85);
+        }
+
+        private void label_Info2_DoubleClick(object sender, EventArgs e)
+        {
+            splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.15);
+        }
+
+        private void splitContainer2_DoubleClick(object sender, EventArgs e)
+        {
+            if (splitContainer2.SplitterDistance > (int)(splitContainer2.Height * 0.80))
+                splitContainer2.SplitterDistance = (int)(splitContainer2.Height * 0.75);
+            else
+                splitContainer2.SplitterDistance = (int)(splitContainer2.Height * 0.88);
+        }
+
+        private void splitContainer2_SplitterMoved(object sender, SplitterEventArgs e)
+        {
+
+        }
+
+
+
+        //
+        // TAG_ARJ_
+
     }
 
 
