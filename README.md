@@ -13,8 +13,9 @@ SV8ARJ Tests :
 Minor UI enhancments. Only for PicoTunner (maybe Mini)
 
 - Side Bar may be hidden/shown
-- Frequency band may be  hidden/shown
-- Information overlay on the video players
-- Double clicks change sizes of things
+- Frequency band may be  hidden/shown/change size
+- Information overlay on the video players (Station ID, Receiver and Stream data, sound active)
+- Double clicks change sizes of things (look for tooltips)
+- Sound may be muted/umnmuted from player (not synced with control panel yet)
 
   *** Hacks for own use...
