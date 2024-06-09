@@ -19,6 +19,7 @@ Minor UI enhancments. Only for PicoTunner (maybe Mini)
 - Sound may be muted/umnmuted from player (not synced with control panel yet)
 
   *** Hacks for own use...
+  Thank you Chris for the nice picture !
 
   
 ![2024-06-09 20_12_50-Open Tuner  (ZR6TG) - (ARJ-01) - PicoTuner](https://github.com/SV8ARJ/open_tuner/assets/43477917/05b6f09d-b959-4f38-99ca-f3f7d8ef8fc4)
