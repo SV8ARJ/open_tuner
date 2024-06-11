@@ -17,7 +17,7 @@ Minor UI enhancments. Only for PicoTunner (maybe Mini)
 - Information overlay on the video players (Station ID, Receiver and Stream data, sound active). Mouse over the label for details.
 - Double clicks change sizes of things (look for tooltips)
 - Sound may be muted/umnmuted from player (not synced with control panel yet)
-
+- Signal meters (MER)
   *** Hacks for own use...
   Thank you Chris for the nice picture !
 
