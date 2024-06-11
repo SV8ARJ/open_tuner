@@ -505,18 +505,7 @@ namespace opentuner.MediaSources.Minitiouner
             data1.Add("frequency", GetFrequency(0, true).ToString());
             OnSourceData?.Invoke(data1, "Tuner 1");
 
-            // Program.MainFormInstance.updateD("label_Info1|" +               // TAG_ARJ
-            //     _tuner1_properties.GetValue("service_name") + " - " +
-            //     // (last_dbm_0 == "" ? "" : " - " +last_dbm_0 + " | " )+
-            //     _tuner1_properties.GetValue("db_margin") + " | " +
-            //     "MER: " + _tuner1_properties.GetValue("mer") +
-            //     (_tuner1_properties.GetValue("modcod") == "Unknown" ? "" : " - " + _tuner1_properties.GetValue("modcod") )+
-            //     (_tuner1_properties.GetValue("video_resolution")  == "" ? "" : " - " + _tuner1_properties.GetValue("video_resolution") )+
-            //     (_tuner1_properties.GetValue("video_codec") == "" ? "" : " - " + _tuner1_properties.GetValue("video_codec")) +
-            //     (_tuner1_properties.GetValue("requested_freq_1") == "" ? "" : " - " + _tuner1_properties.GetValue("requested_freq_1")) +
-            //     " - " + _tuner1_properties.GetValue("symbol_rate")
-            // );
-            updatePlayerLabels("label_Info1", _tuner1_properties);  // TAG_ARJ
+            updatePlayerLabels("1", _tuner1_properties);  // TAG_ARJ
 
             if (ts_devices == 2 && _tuner2_properties != null)
             {
@@ -616,19 +605,7 @@ namespace opentuner.MediaSources.Minitiouner
                 data2.Add("frequency", GetFrequency(1, true).ToString());
                 OnSourceData?.Invoke(data2, "Tuner 2");
 
-                // Program.MainFormInstance.updateD("label_Info2|" +               // TAG_ARJ
-                //     _tuner2_properties.GetValue("service_name") + " - " +
-                //     // (last_dbm_1 == "" ? "" : " - " + last_dbm_1 + " | ") +
-                //     _tuner2_properties.GetValue("db_margin") + " | " +
-                //     "MER: " + _tuner2_properties.GetValue("mer") +
-                //     (_tuner2_properties.GetValue("modcod") == "Unknown" ? "" : " - " + _tuner2_properties.GetValue("modcod")) +
-                //     (_tuner2_properties.GetValue("video_resolution") == "" ? "" : " - " + _tuner2_properties.GetValue("video_resolution")) +
-                //     (_tuner2_properties.GetValue("video_codec") == "" ? "" : " - " + _tuner2_properties.GetValue("video_codec")) +
-                //     (_tuner2_properties.GetValue("requested_freq_2") == "" ? "" : " - " + _tuner2_properties.GetValue("requested_freq_2")) +
-                //     " - " + _tuner2_properties.GetValue("symbol_rate")
-                // );
-
-                updatePlayerLabels("label_Info2", _tuner2_properties);  // TAG_ARJ
+                updatePlayerLabels("2", _tuner2_properties);  // TAG_ARJ
             }
         }
 
@@ -855,9 +832,14 @@ namespace opentuner.MediaSources.Minitiouner
                 (tuner_properties.GetValue("video_codec") == "" ? "" : " - " + tuner_properties.GetValue("video_codec")) +
                 (tuner_properties.GetValue("requested_freq_1") == "" ? "" : " - " + tuner_properties.GetValue("requested_freq_1")) +    // DIRTY trick because of naming difference... :(
                 (tuner_properties.GetValue("requested_freq_2") == "" ? "" : " - " + tuner_properties.GetValue("requested_freq_2")) +
-                " - " + tuner_properties.GetValue("symbol_rate")
+                " - " + tuner_properties.GetValue("symbol_rate") +
+                // " | " + (tuner_properties.GetValue("demodstate") != "Lock DVB-S2" ? "100 db" : tuner_properties.GetValue("rf_input_level") )
+                " | " + (tuner_properties.GetValue("demodstate") != "Lock DVB-S2" ? "0 db" : tuner_properties.GetValue("mer"))
             );
         }
+
+
+
         //
         // TAG_ARJ_
     }
