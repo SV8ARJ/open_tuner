@@ -19,6 +19,8 @@ Minor UI enhancments. Only for PicoTunner (maybe Mini)
 - Sound may be muted/umnmuted from player (not synced with control panel yet)
 - Signal meters (MER)
   *** Hacks for own use...
+
+  
   Thank you Chris for the nice picture !
 
   
