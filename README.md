@@ -18,8 +18,8 @@ Minor UI enhancments. Only for PicoTunner (maybe Mini)
 - Double clicks change sizes of things (look for tooltips)
 - Sound may be muted/umnmuted from player (not synced with control panel yet)
 - Signal meters (MER)
-  *** Hacks for own use...
 
+  *** Hacks for own use...
   
   Thank you Chris for the nice picture !
 
