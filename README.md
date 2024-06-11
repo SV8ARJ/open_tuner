@@ -22,4 +22,4 @@ Minor UI enhancments. Only for PicoTunner (maybe Mini)
   Thank you Chris for the nice picture !
 
   
-![2024-06-09 20_12_50-Open Tuner  (ZR6TG) - (ARJ-01) - PicoTuner](https://github.com/SV8ARJ/open_tuner/assets/43477917/05b6f09d-b959-4f38-99ca-f3f7d8ef8fc4)
+![2024-06-09 20_12_50-Open Tuner  (ZR6TG) - (ARJ-02) - PicoTuner](https://github.com/SV8ARJ/open_tuner/assets/43477917/3790da39-07ca-484e-91a0-63b0bd74d84e)
