@@ -146,9 +146,17 @@ namespace opentuner
                                     Log.Information(hex_data);
                                     */
 
-                                    if (ts_packet[ts_payload_offset] != TS_TABLE_SDT)
-                                    {
-                                        continue;
+
+                                    try {               // TAG_ARJ  Crash Fix on weak / interminent signal
+
+                                        if (ts_packet[ts_payload_offset] != TS_TABLE_SDT)
+                                        {
+                                            continue;
+                                        }
+                                    }
+                                    catch (Exception Ex)
+                                    { 
+                                        continue; 
                                     }
 
                                     UInt32 ts_payload_section_length = ((UInt32)(ts_packet[ts_payload_offset + 1] & 0x0F) << 8) | (UInt32)ts_packet[ts_payload_offset + 2];
