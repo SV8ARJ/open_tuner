@@ -32,6 +32,8 @@ using Serilog;
 using static System.Net.Mime.MediaTypeNames;
 using System.Linq;
 using System.Text.RegularExpressions;
+using NAudio.Wave;
+using Newtonsoft.Json.Linq;
 
 namespace opentuner
 {
@@ -1199,15 +1201,27 @@ namespace opentuner
 
                         if (controls[0].ForeColor == Color.White) controls[0].Text += parts[2]; // Yes, Ι am ashamed...
 
-                        // Indicate muted or not - TODO prperly - this is a hack
+                        // Indicate muted or not - TODO properly - this is a hack
                         //
                         int  tmpPlayerIndex = ( parts[0] == "1" ? 0 : 1 );
                         if (_mediaPlayers[tmpPlayerIndex].GetVolume() != 0)     controls[0].Text += " \uD83D\uDD0A";
 
                         // Signal strength
                         //
-                        ( (CodeArtEng.Gauge.LinearGauge ) signalMtr[0] ).Value = (int)Math.Round( ExtractNumber(parts[3]) );       // Mer is positive. Rf signal is negative db but same for both channels
+                        ( (CodeArtEng.Gauge.LinearGauge ) signalMtr[0] ).Value = (int)( ExtractNumber1(parts[3]) );       // Mer is positive. Rf signal is negative db but same for both channels
                     }
+
+                    // Audio Dish Tunner
+                    //
+                    if ( checkBox_audioDish.Checked && parts[0] == "1")
+                    {
+                        int tmpFreq = MapValue( ExtractNumber1(parts[3]) ) ;
+                        Log.Information(tmpFreq.ToString());
+                    
+                        Console.Beep(tmpFreq, 100);
+                        checkBox_audioDish.Text = tmpFreq.ToString();
+                    }
+
 
                 }
                 catch (Exception ex) { }
@@ -1251,13 +1265,16 @@ namespace opentuner
 
             // ReplaceLabelWithTransparentLabel();
 
-            tmpVolume1 =  _mediaPlayers[0].GetVolume();
-            if (_mediaPlayers[0].GetVolume() == 0) 
-                _mediaPlayers[0].SetVolume(100);
-            else
-                _mediaPlayers[0].SetVolume(0);
+            // tmpVolume1 =  _mediaPlayers[0].GetVolume();
+            // if (_mediaPlayers[0].GetVolume() == 0) 
+            //     _mediaPlayers[0].SetVolume(100);
+            // else
+            //     _mediaPlayers[0].SetVolume(0);
+            // 
+            // linearGauge1.Maximum = 30;
 
-            linearGauge1.Maximum = 30;
+            PlayTone(440, 2); // Play a 440 Hz tone for 2 seconds
+
 
         }
 
@@ -1347,7 +1364,65 @@ namespace opentuner
             splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.15);
         }
 
+        Boolean tmpToneBusy = false ;
+        private void PlayTone(int frequency, int duration)
+        {
+            int sampleRate = 44100; // Sample rate in Hz
+            int amplitude = 32760;  // Max amplitude for 16-bit audio
+            int samples = sampleRate * duration / 1000; // in mSeconds
 
+            if (tmpToneBusy) return;
+
+            tmpToneBusy = true ;
+
+            // Create a buffer to hold the audio data
+            byte[] buffer = new byte[samples * 4]; // 4 bytes per sample (16-bit stereo)
+
+            // Fill the buffer with the sine wave
+            for (int i = 0; i < samples; i++)
+            {
+                short sample = (short)(amplitude * Math.Sin(2 * Math.PI * frequency * i / sampleRate));
+                buffer[i * 4] = (byte)(sample & 0xff);
+                buffer[i * 4 + 1] = (byte)((sample >> 8) & 0xff);
+                buffer[i * 4 + 2] = (byte)(sample & 0xff);
+                buffer[i * 4 + 3] = (byte)((sample >> 8) & 0xff);
+            }
+
+            var waveOut = new WaveOutEvent();
+            var waveProvider = new BufferedWaveProvider(new WaveFormat(rate: sampleRate, bits: 16, channels: 2));
+            {
+                waveProvider.AddSamples(buffer, 0, buffer.Length);
+                waveOut.Init(waveProvider);
+                waveOut.Play();
+
+                // Wait for the sound to finish playing
+                System.Threading.Thread.Sleep(duration );
+                tmpToneBusy = false;
+            }
+        }
+
+        private void linearGauge1_MouseDown(object sender, MouseEventArgs e)
+        {
+            // if (e.Button == MouseButtons.Right)
+                
+        }
+
+        public static int MapValue(double x)
+        {
+            // Define the input and output ranges
+            double a = 10;
+            double b = 150;
+            double c = 200;
+            double d = 8000;
+
+            // Calculate the normalized value
+            double t = (Math.Log(x) - Math.Log(a)) / (Math.Log(b) - Math.Log(a));
+
+            // Calculate the output value
+            double y = c * Math.Pow(d / c, t);
+
+            return (int)y;
+        }
 
 
 
