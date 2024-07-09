@@ -30,12 +30,10 @@
         {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
-            CodeArtEng.Gauge.Themes.ThemeColors themeColors1 = new CodeArtEng.Gauge.Themes.ThemeColors();
-            CodeArtEng.Gauge.Themes.ThemeColors themeColors2 = new CodeArtEng.Gauge.Themes.ThemeColors();
-            CodeArtEng.Gauge.Themes.ThemeColors themeColors3 = new CodeArtEng.Gauge.Themes.ThemeColors();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.SourcePage = new System.Windows.Forms.TabPage();
+            this.button2 = new System.Windows.Forms.Button();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
             this.linkPicoTuner = new System.Windows.Forms.Label();
             this.link2ndTS = new System.Windows.Forms.Label();
@@ -69,9 +67,6 @@
             this.comboAvailableSources = new System.Windows.Forms.ComboBox();
             this.label1 = new System.Windows.Forms.Label();
             this.PropertiesPage = new System.Windows.Forms.TabPage();
-            this.textBox_FFTIndex = new System.Windows.Forms.TextBox();
-            this.checkBox_audioDish = new System.Windows.Forms.CheckBox();
-            this.button2 = new System.Windows.Forms.Button();
             this.button1 = new System.Windows.Forms.Button();
             this.debugPage = new System.Windows.Forms.TabPage();
             this.dbgListBox = new System.Windows.Forms.ListBox();
@@ -79,10 +74,8 @@
             this.splitContainer3 = new System.Windows.Forms.SplitContainer();
             this.splitContainer4 = new System.Windows.Forms.SplitContainer();
             this.label_Info1 = new System.Windows.Forms.Label();
-            this.linearGauge1 = new CodeArtEng.Gauge.LinearGauge();
             this.splitContainer5 = new System.Windows.Forms.SplitContainer();
             this.label_Info2 = new System.Windows.Forms.Label();
-            this.linearGauge2 = new CodeArtEng.Gauge.LinearGauge();
             this.spectrum = new System.Windows.Forms.PictureBox();
             this.contextSpectrumMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.autoTuneToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -163,10 +156,17 @@
             // 
             resources.ApplyResources(this.SourcePage, "SourcePage");
             this.SourcePage.BackColor = System.Drawing.Color.Transparent;
+            this.SourcePage.Controls.Add(this.button2);
             this.SourcePage.Controls.Add(this.groupBox3);
             this.SourcePage.Controls.Add(this.groupBox2);
             this.SourcePage.Controls.Add(this.groupBox1);
             this.SourcePage.Name = "SourcePage";
+            // 
+            // button2
+            // 
+            resources.ApplyResources(this.button2, "button2");
+            this.button2.Name = "button2";
+            this.button2.UseVisualStyleBackColor = true;
             // 
             // groupBox3
             // 
@@ -432,30 +432,8 @@
             // 
             resources.ApplyResources(this.PropertiesPage, "PropertiesPage");
             this.PropertiesPage.BackColor = System.Drawing.Color.Transparent;
-            this.PropertiesPage.Controls.Add(this.textBox_FFTIndex);
-            this.PropertiesPage.Controls.Add(this.checkBox_audioDish);
-            this.PropertiesPage.Controls.Add(this.button2);
             this.PropertiesPage.Controls.Add(this.button1);
             this.PropertiesPage.Name = "PropertiesPage";
-            // 
-            // textBox_FFTIndex
-            // 
-            resources.ApplyResources(this.textBox_FFTIndex, "textBox_FFTIndex");
-            this.textBox_FFTIndex.Name = "textBox_FFTIndex";
-            // 
-            // checkBox_audioDish
-            // 
-            resources.ApplyResources(this.checkBox_audioDish, "checkBox_audioDish");
-            this.checkBox_audioDish.Name = "checkBox_audioDish";
-            this.toolTip1.SetToolTip(this.checkBox_audioDish, resources.GetString("checkBox_audioDish.ToolTip"));
-            this.checkBox_audioDish.UseVisualStyleBackColor = true;
-            // 
-            // button2
-            // 
-            resources.ApplyResources(this.button2, "button2");
-            this.button2.Name = "button2";
-            this.button2.UseVisualStyleBackColor = true;
-            this.button2.Click += new System.EventHandler(this.button2_Click);
             // 
             // button1
             // 
@@ -492,6 +470,7 @@
             // 
             this.splitContainer2.Panel2.Controls.Add(this.spectrum);
             this.toolTip1.SetToolTip(this.splitContainer2, resources.GetString("splitContainer2.ToolTip"));
+            this.splitContainer2.SplitterMoved += new System.Windows.Forms.SplitterEventHandler(this.splitContainer2_SplitterMoved);
             this.splitContainer2.DoubleClick += new System.EventHandler(this.splitContainer2_DoubleClick);
             // 
             // splitContainer3
@@ -509,6 +488,7 @@
             this.splitContainer3.Panel2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(192)))), ((int)(((byte)(192)))));
             this.splitContainer3.Panel2.Controls.Add(this.splitContainer5);
             this.toolTip1.SetToolTip(this.splitContainer3, resources.GetString("splitContainer3.ToolTip"));
+            this.splitContainer3.SplitterMoved += new System.Windows.Forms.SplitterEventHandler(this.splitContainer3_SplitterMoved);
             this.splitContainer3.DoubleClick += new System.EventHandler(this.splitContainer3_DoubleClick);
             // 
             // splitContainer4
@@ -521,7 +501,6 @@
             // 
             this.splitContainer4.Panel1.BackColor = System.Drawing.Color.Black;
             this.splitContainer4.Panel1.Controls.Add(this.label_Info1);
-            this.splitContainer4.Panel1.Controls.Add(this.linearGauge1);
             // 
             // splitContainer4.Panel2
             // 
@@ -536,35 +515,8 @@
             this.toolTip1.SetToolTip(this.label_Info1, resources.GetString("label_Info1.ToolTip"));
             this.label_Info1.Click += new System.EventHandler(this.label_Info1_Click);
             this.label_Info1.DoubleClick += new System.EventHandler(this.label_Info1_DoubleClick);
-            this.label_Info1.MouseDown += new System.Windows.Forms.MouseEventHandler(this.label_Info1_MouseDown);
             this.label_Info1.MouseEnter += new System.EventHandler(this.label_Info1_MouseEnter);
             this.label_Info1.MouseLeave += new System.EventHandler(this.label_Info1_MouseLeave);
-            // 
-            // linearGauge1
-            // 
-            resources.ApplyResources(this.linearGauge1, "linearGauge1");
-            this.linearGauge1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.linearGauge1.BottomBarHeight = 5;
-            this.linearGauge1.ErrorLimit = 30D;
-            this.linearGauge1.InvertLimit = true;
-            this.linearGauge1.LabelWidth = 50;
-            this.linearGauge1.Maximum = 150D;
-            this.linearGauge1.Minimum = -20D;
-            this.linearGauge1.Name = "linearGauge1";
-            this.linearGauge1.ResetValue = 0D;
-            this.linearGauge1.ScaleFactor = 1D;
-            this.linearGauge1.SegmentGap = 1;
-            this.linearGauge1.TabStop = false;
-            this.linearGauge1.Theme = CodeArtEng.Gauge.GaugeTheme.Dark;
-            this.linearGauge1.Title = "";
-            this.toolTip1.SetToolTip(this.linearGauge1, resources.GetString("linearGauge1.ToolTip"));
-            this.linearGauge1.Unit = "cb";
-            this.linearGauge1.UserDefinedColors.Base = themeColors1;
-            this.linearGauge1.UserDefinedColors.Error = themeColors2;
-            this.linearGauge1.UserDefinedColors.Warning = themeColors3;
-            this.linearGauge1.Value = 1D;
-            this.linearGauge1.WarningLimit = 50D;
-            this.linearGauge1.MouseDown += new System.Windows.Forms.MouseEventHandler(this.linearGauge1_MouseDown);
             // 
             // splitContainer5
             // 
@@ -576,7 +528,6 @@
             // 
             this.splitContainer5.Panel1.BackColor = System.Drawing.Color.Black;
             this.splitContainer5.Panel1.Controls.Add(this.label_Info2);
-            this.splitContainer5.Panel1.Controls.Add(this.linearGauge2);
             // 
             // splitContainer5.Panel2
             // 
@@ -591,31 +542,8 @@
             this.toolTip1.SetToolTip(this.label_Info2, resources.GetString("label_Info2.ToolTip"));
             this.label_Info2.Click += new System.EventHandler(this.label_Info2_Click);
             this.label_Info2.DoubleClick += new System.EventHandler(this.label_Info2_DoubleClick);
-            this.label_Info2.MouseDown += new System.Windows.Forms.MouseEventHandler(this.label_Info2_MouseDown);
             this.label_Info2.MouseEnter += new System.EventHandler(this.label_Info2_MouseEnter);
             this.label_Info2.MouseLeave += new System.EventHandler(this.label_Info2_MouseLeave);
-            // 
-            // linearGauge2
-            // 
-            resources.ApplyResources(this.linearGauge2, "linearGauge2");
-            this.linearGauge2.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.linearGauge2.BottomBarHeight = 5;
-            this.linearGauge2.ErrorLimit = 30D;
-            this.linearGauge2.InvertLimit = true;
-            this.linearGauge2.LabelWidth = 50;
-            this.linearGauge2.Maximum = 150D;
-            this.linearGauge2.Minimum = -20D;
-            this.linearGauge2.Name = "linearGauge2";
-            this.linearGauge2.ResetValue = 0D;
-            this.linearGauge2.ScaleFactor = 1D;
-            this.linearGauge2.SegmentGap = 1;
-            this.linearGauge2.TabStop = false;
-            this.linearGauge2.Theme = CodeArtEng.Gauge.GaugeTheme.Dark;
-            this.linearGauge2.Title = "";
-            this.toolTip1.SetToolTip(this.linearGauge2, resources.GetString("linearGauge2.ToolTip"));
-            this.linearGauge2.Unit = "cb";
-            this.linearGauge2.Value = 6D;
-            this.linearGauge2.WarningLimit = 50D;
             // 
             // spectrum
             // 
@@ -787,7 +715,6 @@
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             this.PropertiesPage.ResumeLayout(false);
-            this.PropertiesPage.PerformLayout();
             this.debugPage.ResumeLayout(false);
             this.splitContainer2.Panel1.ResumeLayout(false);
             this.splitContainer2.Panel2.ResumeLayout(false);
@@ -880,14 +807,10 @@
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
         private System.Windows.Forms.ToolStripMenuItem INFO;
         private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.PictureBox spectrum;
         private System.Windows.Forms.ToolTip toolTip1;
         private System.Windows.Forms.Label label_Info1;
         private System.Windows.Forms.Label label_Info2;
-        private CodeArtEng.Gauge.LinearGauge linearGauge1;
-        private CodeArtEng.Gauge.LinearGauge linearGauge2;
-        public System.Windows.Forms.PictureBox spectrum;
-        public System.Windows.Forms.CheckBox checkBox_audioDish;
-        public System.Windows.Forms.TextBox textBox_FFTIndex;
     }
 }
 
