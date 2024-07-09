@@ -30,10 +30,6 @@ using System.Runtime.CompilerServices;
 using Vortice.MediaFoundation;
 using Serilog;
 using static System.Net.Mime.MediaTypeNames;
-using System.Linq;
-using System.Text.RegularExpressions;
-using NAudio.Wave;
-using Newtonsoft.Json.Linq;
 
 namespace opentuner
 {
@@ -1114,7 +1110,7 @@ namespace opentuner
             //splitContainer1.Panel1Collapsed = false;
             splitContainer2.Panel2Collapsed = false;
 
-            this.toolTip1.Show("Toggle left panel visibility. Right click to toggle Frequency Band.", this, 15, 80, 2000);  // TODO Move to resources
+            this.toolTip1.Show("Toggle left panel visibility. Right click to toggle Frequency Band.", this, 50, 50, 2000);  // TODO Move to resources
 
         }
 
@@ -1146,37 +1142,6 @@ namespace opentuner
 
         }
 
-        public static Double ExtractNumber1(string input)
-        {
-            string digits = new string(input.Where(char.IsDigit).ToArray());
-
-            if (!string.IsNullOrEmpty(digits))
-            {
-                return Double.Parse(digits);
-            }
-            else
-            {
-                return 0;
-            }
-        }
-
-        public static double ExtractNumber(string input)
-        {
-            // Define a regular expression to match floating-point numbers
-            string pattern = @"-?\d+(\.\d+)?";
-            Match match = Regex.Match(input, pattern);
-
-            if (match.Success)
-            {
-                // Convert the matched value to a double
-                return double.Parse(match.Value);
-            }
-            else
-            {
-                return 0.0;
-            }
-        }
-
         public void updateD(string s)
         {
             if (this.InvokeRequired)
@@ -1185,15 +1150,13 @@ namespace opentuner
             }
             else
             {
+                // this.["label_Info1"].Text = s;
                 try
                 {
 
                     string[] parts = s.Split('|');
 
-                    Control[] controls = this.Controls.Find("label_Info" + parts[0], true);     // Quick and dirty....  1 | 2
-                    Control[] signalMtr = this.Controls.Find("linearGauge" + parts[0], true);
-
-
+                    Control[] controls = this.Controls.Find(parts[0], true);
                     if (controls.Length > 0)
                     {
                         controls[0].Text = parts[1];
@@ -1201,27 +1164,11 @@ namespace opentuner
 
                         if (controls[0].ForeColor == Color.White) controls[0].Text += parts[2]; // Yes, Ι am ashamed...
 
-                        // Indicate muted or not - TODO properly - this is a hack
+                        // Indicate muted or not - TODO prperly - this is a hack
                         //
-                        int  tmpPlayerIndex = ( parts[0] == "1" ? 0 : 1 );
+                        int  tmpPlayerIndex = ( parts[0] == "label_Info1" ? 0 : 1 );
                         if (_mediaPlayers[tmpPlayerIndex].GetVolume() != 0)     controls[0].Text += " \uD83D\uDD0A";
-
-                        // Signal strength
-                        //
-                        ( (CodeArtEng.Gauge.LinearGauge ) signalMtr[0] ).Value = (int)( ExtractNumber1(parts[3]) );       // Mer is positive. Rf signal is negative db but same for both channels
                     }
-
-                    // Audio Dish Tunner
-                    //
-                    if ( checkBox_audioDish.Checked && parts[0] == "1")
-                    {
-                        int tmpFreq = MapValue( ExtractNumber1(parts[3]) ) ;
-                        Log.Information(tmpFreq.ToString());
-                    
-                        Console.Beep(tmpFreq, 100);
-                        checkBox_audioDish.Text = tmpFreq.ToString();
-                    }
-
 
                 }
                 catch (Exception ex) { }
@@ -1265,17 +1212,12 @@ namespace opentuner
 
             // ReplaceLabelWithTransparentLabel();
 
-            // tmpVolume1 =  _mediaPlayers[0].GetVolume();
-            // if (_mediaPlayers[0].GetVolume() == 0) 
-            //     _mediaPlayers[0].SetVolume(100);
-            // else
-            //     _mediaPlayers[0].SetVolume(0);
-            // 
-            // linearGauge1.Maximum = 30;
-
-            PlayTone(440, 2); // Play a 440 Hz tone for 2 seconds
-
-
+            tmpVolume1 =  _mediaPlayers[0].GetVolume();
+            if (_mediaPlayers[0].GetVolume() == 0) 
+                _mediaPlayers[0].SetVolume(100);
+            else
+                _mediaPlayers[0].SetVolume(0);
+            
         }
 
         private void INFO_Click(object sender, EventArgs e)
@@ -1283,9 +1225,40 @@ namespace opentuner
 
         }
 
+        private void label_Info1_Click(object sender, EventArgs e)
+        {
+            if (_mediaPlayers[0].GetVolume() == 0)
+                _mediaPlayers[0].SetVolume(100);
+            else
+                _mediaPlayers[0].SetVolume(0);
+        }
+
+        private void label_Info2_Click(object sender, EventArgs e)
+        {
+            if (_mediaPlayers[1].GetVolume() == 0)
+                _mediaPlayers[1].SetVolume(100);
+            else
+                _mediaPlayers[1].SetVolume(0);
+        }
+
+        private void splitContainer3_SplitterMoved(object sender, SplitterEventArgs e)
+        {
+
+        }
+
         private void splitContainer3_DoubleClick(object sender, EventArgs e)
         {
             splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.5);
+        }
+
+        private void label_Info1_DoubleClick(object sender, EventArgs e)
+        {
+            splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.85);
+        }
+
+        private void label_Info2_DoubleClick(object sender, EventArgs e)
+        {
+            splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.15);
         }
 
         private void splitContainer2_DoubleClick(object sender, EventArgs e)
@@ -1296,132 +1269,9 @@ namespace opentuner
                 splitContainer2.SplitterDistance = (int)(splitContainer2.Height * 0.88);
         }
 
-        private void button2_Click(object sender, EventArgs e)
+        private void splitContainer2_SplitterMoved(object sender, SplitterEventArgs e)
         {
-            linearGauge1.Maximum = 100;
-        }
 
-
-        // Label INFO 1
-        //
-        private Boolean ignoreClick = false;
-        private void label_Info1_MouseDown(object sender, MouseEventArgs e)
-        {
-            ignoreClick = false;
-            if (e.Button == MouseButtons.Right )
-            {
-                ignoreClick = true;
-                linearGauge1.Visible = !linearGauge1.Visible;
-            }
-
-        }
-        private void label_Info1_Click(object sender, EventArgs e)
-        {
-            if (ignoreClick) return;
-
-            if (_mediaPlayers[0].GetVolume() == 0)
-                _mediaPlayers[0].SetVolume(100);
-            else
-                _mediaPlayers[0].SetVolume(0);
-        }
-
-        private void label_Info1_DoubleClick(object sender, EventArgs e)
-        {
-            if (ignoreClick) return;
-
-            splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.85);
-        }
-
-
-
-        // Label INFO 2
-        //
-        private void label_Info2_MouseDown(object sender, MouseEventArgs e)
-        {
-            ignoreClick = false;
-            if (e.Button == MouseButtons.Right)
-            {
-                ignoreClick = true;
-                linearGauge2.Visible = !linearGauge2.Visible;
-            }
-
-        }
-
-        private void label_Info2_Click(object sender, EventArgs e)
-        {
-            if (ignoreClick) return;
-
-            if (_mediaPlayers[1].GetVolume() == 0)
-                _mediaPlayers[1].SetVolume(100);
-            else
-                _mediaPlayers[1].SetVolume(0);
-        }
-
-        private void label_Info2_DoubleClick(object sender, EventArgs e)
-        {
-            if (ignoreClick) return;
-
-            splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.15);
-        }
-
-        Boolean tmpToneBusy = false ;
-        private void PlayTone(int frequency, int duration)
-        {
-            int sampleRate = 44100; // Sample rate in Hz
-            int amplitude = 32760;  // Max amplitude for 16-bit audio
-            int samples = sampleRate * duration / 1000; // in mSeconds
-
-            if (tmpToneBusy) return;
-
-            tmpToneBusy = true ;
-
-            // Create a buffer to hold the audio data
-            byte[] buffer = new byte[samples * 4]; // 4 bytes per sample (16-bit stereo)
-
-            // Fill the buffer with the sine wave
-            for (int i = 0; i < samples; i++)
-            {
-                short sample = (short)(amplitude * Math.Sin(2 * Math.PI * frequency * i / sampleRate));
-                buffer[i * 4] = (byte)(sample & 0xff);
-                buffer[i * 4 + 1] = (byte)((sample >> 8) & 0xff);
-                buffer[i * 4 + 2] = (byte)(sample & 0xff);
-                buffer[i * 4 + 3] = (byte)((sample >> 8) & 0xff);
-            }
-
-            var waveOut = new WaveOutEvent();
-            var waveProvider = new BufferedWaveProvider(new WaveFormat(rate: sampleRate, bits: 16, channels: 2));
-            {
-                waveProvider.AddSamples(buffer, 0, buffer.Length);
-                waveOut.Init(waveProvider);
-                waveOut.Play();
-
-                // Wait for the sound to finish playing
-                System.Threading.Thread.Sleep(duration );
-                tmpToneBusy = false;
-            }
-        }
-
-        private void linearGauge1_MouseDown(object sender, MouseEventArgs e)
-        {
-            // if (e.Button == MouseButtons.Right)
-                
-        }
-
-        public static int MapValue(double x)
-        {
-            // Define the input and output ranges
-            double a = 10;
-            double b = 150;
-            double c = 200;
-            double d = 8000;
-
-            // Calculate the normalized value
-            double t = (Math.Log(x) - Math.Log(a)) / (Math.Log(b) - Math.Log(a));
-
-            // Calculate the output value
-            double y = c * Math.Pow(d / c, t);
-
-            return (int)y;
         }
 
 
