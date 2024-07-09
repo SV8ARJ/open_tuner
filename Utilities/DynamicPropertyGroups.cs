@@ -35,6 +35,19 @@ namespace opentuner.Utilities
 
         private int _id = 0;
 
+        public string GetValue(string key)  // TAG_ARJ
+        {
+            foreach (var item in _items)
+            {
+                if (item.Key == key)
+                {
+                    return item.LastValue; // Assuming DynamicPropertyInterface has a LastValue property
+                }
+            }
+            return ""; // This should not happen
+        }
+
+
         public void setID(int id)
         {
             _id = id;
