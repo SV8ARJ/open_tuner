@@ -41,6 +41,12 @@ namespace opentuner
 
         bool recording = false;
         string media_path = "";
+        public string Path => media_path;
+
+        // "<Station>-<SR>KS" (see CommonFunctions.StationSuffix), kept up to date by the owning
+        // source's status update so it is current at the moment a new recording file is opened
+        // below. Falls back to the tuner id when empty (not locked yet) so files stay unique.
+        public string StationInfo = "";
 
         private bool _running = false;
         private Thread _recorderThread = null;
@@ -83,12 +89,13 @@ namespace opentuner
                         // open a new file
                         Log.Information("recording");
 
-                        string filename = DateTime.Now.ToString("yyyy-dd-M--HH-mm-ss") + "_" + _id + ".ts";
+                        string name_suffix = string.IsNullOrEmpty(StationInfo) ? _id.ToString() : StationInfo;
+                        string filename = opentuner.Utilities.CommonFunctions.GenerateTimestampFilename() + "_" + name_suffix + ".ts";
 
                         // if path doesn't exist then save in same folder
                         if (Directory.Exists(media_path))
                         {
-                            filename = this.media_path + DateTime.Now.ToString("yyyy-dd-M--HH-mm-ss") + "_" + _id + ".ts";
+                            filename = this.media_path + filename;
                         }
                         
                         binWriter = new BinaryWriter(File.Open(filename, FileMode.Create));

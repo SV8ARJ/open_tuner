@@ -25,7 +25,29 @@ namespace opentuner.Utilities
 
         public static string GenerateTimestampFilename()
         {
-            return DateTime.Now.ToString("yyyy-dd-M--HH-mm-ss");
+            // Was "yyyy-dd-M--HH-mm-ss" (day and month swapped, e.g. "2026-28-9" for Sept 28) - fixed.
+            return DateTime.Now.ToString("yyyy-MM-dd_HH.mm.ss");
+        }
+
+        // e.g. "2026-09-28_20.51.57_A71A-1500KS" - station is sanitized (invalid filename
+        // characters stripped) and dropped entirely (no dangling "_") if empty/unknown.
+        public static string GenerateTimestampFilename(string station, uint symbol_rate_ks)
+        {
+            string suffix = StationSuffix(station, symbol_rate_ks);
+            return string.IsNullOrEmpty(suffix) ? GenerateTimestampFilename() : GenerateTimestampFilename() + "_" + suffix;
+        }
+
+        // The "<Station>-<SR>KS" part on its own, e.g. "A71A-1500KS" - for callers (like TSRecorder)
+        // that build the filename themselves. "" if the station is empty/unknown (not locked yet).
+        public static string StationSuffix(string station, uint symbol_rate_ks)
+        {
+            if (string.IsNullOrWhiteSpace(station))
+                return "";
+
+            char[] invalid = System.IO.Path.GetInvalidFileNameChars();
+            string safe_station = new string(station.Trim().Where(c => !invalid.Contains(c)).ToArray());
+
+            return string.IsNullOrEmpty(safe_station) ? "" : safe_station + "-" + symbol_rate_ks + "KS";
         }
 
         public static List<string> determineIP()

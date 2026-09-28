@@ -638,6 +638,16 @@ namespace opentuner
                 if (datv_reporter != null)
                     datv_reporter.Close();
 
+                if (videoSource != null)
+                {
+                    // Stop TS (issue #9): put the tuner(s) into the same idle state a "Stop TS"
+                    // button click would, before tearing anything else down on exit.
+                    for (int i = 0; i < videoSource.GetVideoSourceCount(); i++)
+                    {
+                        videoSource.StopTuner(i);
+                    }
+                }
+
                 Log.Information("* Stopping Playing Video");
 
                 if (videoSource != null)

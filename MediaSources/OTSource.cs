@@ -52,6 +52,11 @@ namespace opentuner.MediaSources
 
         public abstract void StartStreaming(int device);
         public abstract void StopStreaming(int device);
+
+        // Stops that tuner's demodulator (issue #9 "Stop TS") - a new signal has to be tuned in
+        // afterwards, like at startup. Only MiniTiouner/PicoTuner implement this so far; a no-op
+        // default lets MainForm call it on every source without a type check.
+        public virtual void StopTuner(int device) { }
         public abstract int GetVideoSourceCount();
         public abstract CircularBuffer GetVideoDataQueue(int device);
         public abstract void RegisterTSConsumer(int device, CircularBuffer ts_buffer_queue);

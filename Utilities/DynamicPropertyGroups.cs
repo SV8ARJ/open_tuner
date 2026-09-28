@@ -253,6 +253,42 @@ namespace opentuner.Utilities
             }
         }
 
+        public void SetSnapshotTooltip(string Key, string path)
+        {
+            for (int c = 0; c < _items.Count; c++)
+            {
+                if (_items[c].Key == Key)
+                {
+                    (_items[c] as DynamicPropertyMediaControls)?.SetSnapshotTooltip(path);
+                    break;
+                }
+            }
+        }
+
+        public void SetRecordTooltip(string Key, string path)
+        {
+            for (int c = 0; c < _items.Count; c++)
+            {
+                if (_items[c].Key == Key)
+                {
+                    (_items[c] as DynamicPropertyMediaControls)?.SetRecordTooltip(path);
+                    break;
+                }
+            }
+        }
+
+        public void ShowNotice(string Key, string text)
+        {
+            for (int c = 0; c < _items.Count; c++)
+            {
+                if (_items[c].Key == Key)
+                {
+                    _items[c].ShowNotice(text);
+                    break;
+                }
+            }
+        }
+
         public void UpdateStreamButtonColor(string Key, Color Col)
         {
             // this can probably be done more efficient, but will do for now

@@ -92,6 +92,14 @@ namespace opentuner.MediaSources.Minitiouner
             nim_thread?.TriggerToneBurst(tuner_index);
         }
 
+        // "Stop TS" (issue #9) - stops the demodulator; the existing "not locked" handling in
+        // nim_status_feedback/UpdateTunerProperties then stops the player, TS recording and UDP
+        // streaming on the next status update, same as when a signal is lost.
+        public override void StopTuner(int tuner_index)
+        {
+            nim_thread?.StopTuner(tuner_index);
+        }
+
         // The Switches state the user picked last (LNB-A/LNB-B supply, 22kHz tone per tuner) is
         // kept for the next connect: Initialize() restores it before the Switches dropdowns are
         // built, so the setup survives restarts without a trip through the settings dialog.
@@ -1108,11 +1116,16 @@ namespace opentuner.MediaSources.Minitiouner
         public override void ConfigureTSRecorders(List<TSRecorder> TSRecorders)
         {
             _ts_recorders = TSRecorders;
-            
+
             for (int c = 0; c < _ts_recorders.Count; c++)
             {
                 _ts_recorders[c].onRecordStatusChange += MinitiounerSource_onRecordStatusChange;
             }
+
+            if (_ts_recorders.Count > 0)
+                _tuner1_properties?.SetRecordTooltip("media_controls_1", _ts_recorders[0].Path);
+            if (_ts_recorders.Count > 1)
+                _tuner2_properties?.SetRecordTooltip("media_controls_2", _ts_recorders[1].Path);
         }
 
         private void MinitiounerSource_onRecordStatusChange(object sender, bool e)
@@ -1138,6 +1151,8 @@ namespace opentuner.MediaSources.Minitiouner
         public override void ConfigureMediaPath(string MediaPath)
         {
             _mediapath = MediaPath;
+            _tuner1_properties?.SetSnapshotTooltip("media_controls_1", _mediapath);
+            _tuner2_properties?.SetSnapshotTooltip("media_controls_2", _mediapath);
         }
 
         public override string GetMoreInfoLink()

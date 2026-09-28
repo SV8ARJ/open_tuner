@@ -202,5 +202,10 @@ namespace opentuner.Utilities
         {
             throw new NotImplementedException();
         }
+
+        public override void ShowNotice(string text)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

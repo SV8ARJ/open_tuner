@@ -1414,6 +1414,21 @@ namespace opentuner
             return err;
         }
 
+        // Stops the demodulator (issue #9 "Stop TS"): same DMDISTATE value stv0910_init() sets at
+        // start, so the tuner sits idle until the next stv0910_start_scan() - no lock, no TS, nothing
+        // to reconfigure on the tuner chip itself.
+        public byte stv0910_stop_demod(byte demod)
+        {
+            bool top = demod == STV0910_DEMOD_TOP;
+            ushort dmdistate = top ? stv0910_regs.RSTV0910_P2_DMDISTATE : stv0910_regs.RSTV0910_P1_DMDISTATE;
+
+            byte err = stv0910_write_reg(dmdistate, STV0910_DEMOD_STOP);
+
+            if (err != 0) Log.Information("ERROR: STV0910 stop demod");
+
+            return err;
+        }
+
         public byte stv0910_read_scan_state(byte demod, ref byte state)
         {
             byte err = 0;

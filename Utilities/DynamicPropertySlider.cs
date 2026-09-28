@@ -88,6 +88,7 @@ namespace opentuner.Utilities
             // set initial value
             _titleLabel.Text = _title + " " + _trackBar.Value.ToString() + " %";
             _trackBar.ValueChanged += _trackBar_ValueChanged;
+            _trackBar.MouseUp += _trackBar_MouseUp;
 
 
             _parent.Controls.Add(_titleLabel);
@@ -98,6 +99,16 @@ namespace opentuner.Utilities
         {
             OnSliderChanged?.Invoke(_key, _trackBar.Value);
             _titleLabel.Text = _title + " " + _trackBar.Value.ToString() + " %";
+        }
+
+        // Right click resets the volume slider to 100% (all three sources use this only for
+        // volume, range 0-200) - quicker than dragging back after boosting or muting.
+        private void _trackBar_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                _trackBar.Value = Math.Max(_min, Math.Min(_max, 100));
+            }
         }
 
         protected void _parent_Resize(object sender, EventArgs e)
@@ -136,6 +147,11 @@ namespace opentuner.Utilities
         }
 
         public override void UpdateStreamButtonColor(Color Col)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void ShowNotice(string text)
         {
             throw new NotImplementedException();
         }

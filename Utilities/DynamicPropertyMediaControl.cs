@@ -9,21 +9,27 @@ namespace opentuner.Utilities
         private delegate void UpdateLabelDelegate(Label Lbl, Object obj);
         private delegate void UpdateLabelColorDelegate(Label Lbl, Color Col);
 
-        public delegate void ButtonPressedCallback(string key, int function); // 0 = mute, 1 snapshot, 2 = record
+        public delegate void ButtonPressedCallback(string key, int function); // 0 = mute, 1 snapshot, 2 = record, 3 = UDP stream, 4 = stop TS
 
         protected GroupBox _parent;
         protected string _key;
         protected string _title;
         protected string _value;
 
-        ToolTip _toolTip = new ToolTip();
+        // ShowAlways: without it a ToolTip only shows while the containing form is the active
+        // window - with several other windows open (chat, spectrum, video) that made these
+        // tooltips "often not shown" (issue #9).
+        ToolTip _toolTip = new ToolTip { ShowAlways = true };
 
         private Button _MuteButton;
         private Button _SnapshotButton;
         private Button _UDPStreamButton;
         private Button _RecordButton;
+        private Button _StopTSButton;
 
-        private readonly int buttonSize = 32;
+        private readonly int buttonWidth = 56;
+        private readonly int buttonHeight = 26;
+        private readonly int button_gap = 2;
         private readonly int left_margin = -10;
 
         public override string Key
@@ -100,50 +106,57 @@ namespace opentuner.Utilities
 
             _parent.Resize += _parent_Resize;
 
-            _MuteButton = new Button();
-            _MuteButton.Text = "M";
-            _MuteButton.AutoSize = false;
-            _MuteButton.Height = buttonSize;
-            _MuteButton.Width = buttonSize;
-            _MuteButton.Top = _parent.Controls[_parent.Controls.Count - 1].Top + _parent.Controls[_parent.Controls.Count - 1].Height + top_margin;
-            _MuteButton.Left = left_margin + _parent.Width - (4 * (buttonSize + 2));
+            int top = _parent.Controls[_parent.Controls.Count - 1].Top + _parent.Controls[_parent.Controls.Count - 1].Height + top_margin;
+
+            // Order left to right: Mute, Snap, UDP, Record, Stop TS - slotFromRight counts from the
+            // right-aligned edge, 0 = rightmost (Stop TS).
+            _MuteButton = MakeButton("Mute", "Mute TS audio", 4, top);
             _MuteButton.Click += _MuteButton_Click;
-            _toolTip.SetToolTip(_MuteButton, "Mute");
 
-            _SnapshotButton = new Button();
-            _SnapshotButton.Text = "S";
-            _SnapshotButton.AutoSize = false;
-            _SnapshotButton.Height = buttonSize;
-            _SnapshotButton.Width = buttonSize;
-            _SnapshotButton.Top = _parent.Controls[_parent.Controls.Count - 1].Top + _parent.Controls[_parent.Controls.Count - 1].Height + top_margin;
-            _SnapshotButton.Left = left_margin + _parent.Width - (3 * (buttonSize + 2));
+            // Snap/Record tooltips get the actual save path appended once it is known - see
+            // SetSnapshotTooltip/SetRecordTooltip (called once ConfigureMediaPath/ConfigureTSRecorders run).
+            _SnapshotButton = MakeButton("Snap", "Snapshot picture of this tuner", 3, top);
             _SnapshotButton.Click += _SnapshotButton_Click;
-            _toolTip.SetToolTip(_SnapshotButton, "Snapshot");
 
-            _UDPStreamButton = new Button();
-            _UDPStreamButton.Text = "U";
-            _UDPStreamButton.AutoSize = false;
-            _UDPStreamButton.Height = buttonSize;
-            _UDPStreamButton.Width = buttonSize;
-            _UDPStreamButton.Top = _parent.Controls[_parent.Controls.Count - 1].Top + _parent.Controls[_parent.Controls.Count - 1].Height + top_margin;
-            _UDPStreamButton.Left = left_margin + _parent.Width - (2 * (buttonSize + 2));
+            _UDPStreamButton = MakeButton("UDP", "Start/stop UDP stream", 2, top);
             _UDPStreamButton.Click += _UDPStreamButton_Click;
-            _toolTip.SetToolTip(_UDPStreamButton, "UDP Stream");
 
-            _RecordButton = new Button();
-            _RecordButton.Text = "R";
-            _RecordButton.AutoSize = false;
-            _RecordButton.Height = buttonSize;
-            _RecordButton.Width = buttonSize;
-            _RecordButton.Top = _parent.Controls[_parent.Controls.Count - 1].Top + _parent.Controls[_parent.Controls.Count - 1].Height + top_margin;
-            _RecordButton.Left = left_margin + _parent.Width - (1 * (buttonSize + 2));
+            _RecordButton = MakeButton("REC", "Start/stop recording the TS stream", 1, top);
             _RecordButton.Click += _RecordButton_Click;
-            _toolTip.SetToolTip(_RecordButton, "Record");
+
+            _StopTSButton = MakeButton("Stop TS", "Stop TS: ends decoding and stops the demodulator - the tuner needs a new signal click afterwards", 0, top);
+            _StopTSButton.Click += _StopTSButton_Click;
 
             _parent.Controls.Add(_MuteButton);
             _parent.Controls.Add(_SnapshotButton);
             _parent.Controls.Add(_RecordButton);
             _parent.Controls.Add(_UDPStreamButton);
+            _parent.Controls.Add(_StopTSButton);
+        }
+
+        private Button MakeButton(string text, string tooltip, int slotFromRight, int top)
+        {
+            var button = new Button
+            {
+                Text = text,
+                AutoSize = false,
+                Height = buttonHeight,
+                Width = buttonWidth,
+                Top = top,
+                Left = ButtonLeft(slotFromRight)
+            };
+            _toolTip.SetToolTip(button, tooltip);
+            return button;
+        }
+
+        private int ButtonLeft(int slotFromRight)
+        {
+            return left_margin + _parent.Width - ((slotFromRight + 1) * (buttonWidth + button_gap));
+        }
+
+        private void _StopTSButton_Click(object sender, EventArgs e)
+        {
+            _buttonPressedCallback?.Invoke(_key, 4);
         }
 
         private void _UDPStreamButton_Click(object sender, EventArgs e)
@@ -168,10 +181,11 @@ namespace opentuner.Utilities
 
         protected virtual void _parent_Resize(object sender, EventArgs e)
         {
-            _MuteButton.Left = left_margin + _parent.Width - (4 * (buttonSize + 2));
-            _SnapshotButton.Left = left_margin + _parent.Width - (3 * (buttonSize + 2));
-            _UDPStreamButton.Left = left_margin + _parent.Width - (2 * (buttonSize + 2));
-            _RecordButton.Left = left_margin + _parent.Width - (1 * (buttonSize + 2));
+            _MuteButton.Left = ButtonLeft(4);
+            _SnapshotButton.Left = ButtonLeft(3);
+            _UDPStreamButton.Left = ButtonLeft(2);
+            _RecordButton.Left = ButtonLeft(1);
+            _StopTSButton.Left = ButtonLeft(0);
         }
 
         public override void UpdateColor(Color Col)
@@ -192,6 +206,26 @@ namespace opentuner.Utilities
         public override void UpdateStreamButtonColor(Color Col)
         {
             _UDPStreamButton.BackColor = Col;
+        }
+
+        // Shown next to the button row for a few seconds (e.g. "Snapshot saved: ..."), not kept
+        // like SetToolTip's hover text. Called on the UI thread (button Click), so no Invoke needed.
+        public override void ShowNotice(string text)
+        {
+            _toolTip.Show(text, _parent, _MuteButton.Left, _MuteButton.Top - 20, 4000);
+        }
+
+        // The save path isn't known yet when the button is built (ConfigureMediaPath/
+        // ConfigureTSRecorders run later than BuildSourceProperties) - appended to the hover
+        // tooltip once it is.
+        public void SetSnapshotTooltip(string path)
+        {
+            _toolTip.SetToolTip(_SnapshotButton, "Snapshot picture of this tuner to " + path);
+        }
+
+        public void SetRecordTooltip(string path)
+        {
+            _toolTip.SetToolTip(_RecordButton, "Start/stop recording the TS stream to " + path);
         }
     }
 }

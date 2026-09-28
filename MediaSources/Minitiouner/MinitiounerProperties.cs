@@ -455,9 +455,15 @@ namespace opentuner.MediaSources.Minitiouner
 
                     break;
                 case 1: // snaphost
-                    Log.Information("Snapshot: " + tuner.ToString());
-                    _media_player[tuner].SnapShot(_mediapath + CommonFunctions.GenerateTimestampFilename() + ".png");
-
+                    {
+                        string station = (tuner == 0 ? _tuner1_properties : _tuner2_properties).GetValue("service_name");
+                        uint sr_ks = tuner == 0 ? current_sr_0 : current_sr_1;
+                        string snapshot_filename = CommonFunctions.GenerateTimestampFilename(station, sr_ks) + ".png";
+                        string snapshot_path = _mediapath + snapshot_filename;
+                        Log.Information("Snapshot: tuner " + tuner.ToString() + ", " + snapshot_path);
+                        _media_player[tuner].SnapShot(snapshot_path);
+                        (tuner == 0 ? _tuner1_properties : _tuner2_properties).ShowNotice("media_controls_" + (tuner + 1).ToString(), "Saved: " + snapshot_path);
+                    }
                     break;
                 case 2: // record
                     Log.Information("Record: " + tuner.ToString());
@@ -537,6 +543,10 @@ namespace opentuner.MediaSources.Minitiouner
 //                        _tuner2_properties.UpdateValue("media_controls_2", indicatorStatus2.ToString());
                     }
 
+                    break;
+                case 4: // stop TS
+                    Log.Information("Stop TS: " + tuner.ToString());
+                    StopTuner(tuner);
                     break;
             }
         }
@@ -842,6 +852,9 @@ namespace opentuner.MediaSources.Minitiouner
             source_data.service_name = _tuner1_properties.GetValue("service_name");
             source_data.symbol_rate = (int)(new_status.T1P2_symbol_rate / 1000);
 
+            if (_ts_recorders != null && _ts_recorders.Count > 0)
+                _ts_recorders[0].StationInfo = opentuner.Utilities.CommonFunctions.StationSuffix(source_data.service_name, current_sr_0);
+
             if (_media_player.Count > 0)
             {
                 if (_media_player[0] != null)
@@ -962,6 +975,9 @@ namespace opentuner.MediaSources.Minitiouner
                 source_data_2.service_name = _tuner2_properties.GetValue("service_name");
                 source_data_2.demod_locked = (new_status.T2P1_demod_status > 1);
                 source_data_2.symbol_rate = (int)(new_status.T2P1_symbol_rate / 1000);
+
+                if (_ts_recorders != null && _ts_recorders.Count > 1)
+                    _ts_recorders[1].StationInfo = opentuner.Utilities.CommonFunctions.StationSuffix(source_data_2.service_name, current_sr_1);
 
                 if (_media_player.Count > 1)
                 {

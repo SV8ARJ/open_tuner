@@ -6,13 +6,14 @@ using Serilog;
 namespace opentuner.Utilities
 {
     // Logs a warning when the UI thread does not answer for a while, and again when it recovers.
-    // Every 500 ms a small message is posted to the UI thread; how long it waits in the message queue
-    // is the response time. Also logs CPU load and garbage collection time, to tell a UI thread that is
-    // blocked from one that is just very busy. Create it on the UI thread.
+    // Every CheckIntervalMs a small message is posted to the UI thread; how long it waits in the
+    // message queue is the response time - longer than StallThresholdMs counts as a stall. Also
+    // logs CPU load and garbage collection time, to tell a UI thread that is blocked from one that
+    // is just very busy. Create it on the UI thread.
     public class UiWatchdog : IDisposable
     {
         private const int CheckIntervalMs = 500;
-        private const int StallThresholdMs = 2000;
+        private const int StallThresholdMs = 8000;
 
         private readonly SynchronizationContext _ui;
         private readonly System.Threading.Timer _check;
@@ -99,7 +100,11 @@ namespace opentuner.Utilities
                     waiting, _cpuPercent, _process.Threads.Count, _process.WorkingSet64 / (1024 * 1024),
                     GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2), (int)_stallGcPauseMs);
 
-                // with --breakonstall and a debugger attached, stop here to look at the UI thread
+                // with --breakonstall (see Program.BreakOnStall, Program.cs:20/65) and a debugger
+                // attached, stop here to look at the UI thread. This break happens on the
+                // watchdog's own .NET TP Worker timer thread, not the stalled thread itself - in
+                // the Threads window, switch to the thread whose category is "Main Thread"
+                // (usually managed id 1) to see what it is stuck in.
                 if (opentuner.Program.BreakOnStall && Debugger.IsAttached)
                 {
                     Debugger.Break();

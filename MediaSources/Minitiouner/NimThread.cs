@@ -80,6 +80,18 @@ namespace opentuner
             else if (tuner_index == 1) trigger_burst_1 = true;
         }
 
+        // "Stop TS" (issue #9) - same one-shot pattern as the tone burst above: set from the UI
+        // thread, consumed and cleared on this thread so the DMDISTATE write runs alongside the
+        // rest of the NIM I2C traffic instead of racing it from another thread.
+        private volatile bool stop_tuner_0 = false;
+        private volatile bool stop_tuner_1 = false;
+
+        public void StopTuner(int tuner_index)
+        {
+            if (tuner_index == 0) stop_tuner_0 = true;
+            else if (tuner_index == 1) stop_tuner_1 = true;
+        }
+
         // Digole callsign/locator/name changed in the settings dialog while connected - takes
         // effect at once (the greeting is redrawn on the next poll if no signal is locked).
         public void UpdateDigoleIdentity(string callsign, string locator, string name)
@@ -1016,6 +1028,20 @@ namespace opentuner
                                 _stv0910.stv0910_send_tone_burst_p2();
                                 if (current_config[1] != null)
                                     _stv0910.stv0910_switch_22Khz(stv0910.STV0910_DEMOD_BOTTOM, current_config[1].tone_22kHz_P1);
+                            }
+                            if (stop_tuner_0)
+                            {
+                                stop_tuner_0 = false;
+                                Log.Information("Nim Thread: Stop TS - tuner 1");
+                                _stv0910.stv0910_stop_demod(stv0910.STV0910_DEMOD_TOP);
+                                current_config[0] = null; // tuner has to be told a new frequency again, like at startup
+                            }
+                            if (stop_tuner_1)
+                            {
+                                stop_tuner_1 = false;
+                                Log.Information("Nim Thread: Stop TS - tuner 2");
+                                _stv0910.stv0910_stop_demod(stv0910.STV0910_DEMOD_BOTTOM);
+                                current_config[1] = null;
                             }
                             get_nim_status();
                         }
