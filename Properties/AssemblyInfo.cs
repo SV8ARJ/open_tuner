@@ -1,6 +1,13 @@
 ﻿using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+
+// TargetFramework is net10.0-windows, but GenerateAssemblyInfo=false (this file is hand-written,
+// not SDK-generated) means the SDK's usual auto-generated [SupportedOSPlatform] attribute for that
+// TFM is missing too - without it, the CA1416 platform-compatibility analyzer can't tell that every
+// WinForms/GDI+ call in this Windows-only app is fine, and flags all ~2600 of them individually.
+[assembly: SupportedOSPlatform("windows")]
 
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
