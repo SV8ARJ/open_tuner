@@ -24,7 +24,6 @@ namespace opentuner.Utilities
 
 
         private Control _parent;
-        private Label _big_num_label;
 
         //private GroupBox _groupBox;
         private CustomGroupBox _groupBox;
@@ -65,21 +64,6 @@ namespace opentuner.Utilities
             _groupBox.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 
 
-            /*
-            // main number - d number value
-            _big_num_label = new Label();
-            _big_num_label.Text = "";
-            //_big_num_label.BorderStyle = BorderStyle.FixedSingle;
-            _big_num_label.BackColor = Color.Transparent;
-            _big_num_label.AutoSize = false;
-            _big_num_label.Width = 80;
-            _big_num_label.Height = 50;
-            _big_num_label.Top = 8;
-            _big_num_label.Left = _groupBox.Width - _big_num_label.Width - 2;
-            _big_num_label.Font = new Font("Arial", 15, FontStyle.Bold);
-            _big_num_label.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            */
-            _groupBox.Controls.Add(_big_num_label);
             Parent.Controls.Add(_groupBox);
             Parent.Resize += _groupBox_Resize;
 

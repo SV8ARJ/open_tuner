@@ -36,7 +36,12 @@ namespace opentuner.MediaSources.Longmynd
 
     public partial class LongmyndSource
     {
+        // Required override (OTSource.OnSourceData is abstract) - Longmynd doesn't report source
+        // data (service name, MER, db margin, ...) to the video info overlay yet, so this is never
+        // raised. Not the same gap as MiniTiouner/WinterHill, which do raise their own OnSourceData.
+#pragma warning disable CS0067 // event is never used
         public override event SourceDataChange OnSourceData;
+#pragma warning restore CS0067
 
         // properties management
         Control _parent = null;

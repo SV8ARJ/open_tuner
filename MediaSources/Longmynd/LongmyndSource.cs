@@ -19,9 +19,6 @@ namespace opentuner.MediaSources.Longmynd
     {
         private bool _connected = false;
 
-
-        private System.Timers.Timer sessionTimer;
-
         private LongmyndSettings _settings;
         private SettingsManager<LongmyndSettings> _settingsManager;
 

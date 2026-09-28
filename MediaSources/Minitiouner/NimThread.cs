@@ -129,9 +129,7 @@ namespace opentuner
         // now, typically well under a second.
         public readonly object HwLock = new object();
 
-        //byte current_demod = stv0910.STV0910_DEMOD_BOTTOM;  
-
-        public event EventHandler<StatusEvent> onNewStatus;
+        //byte current_demod = stv0910.STV0910_DEMOD_BOTTOM;
 
         // Offsets (LNB LO frequency etc., MinitiounerSettings.Offset1/Offset2) added back onto
         // the tuned IF frequency for display, so the Digole shows the real downlink frequency
@@ -1100,10 +1098,5 @@ namespace opentuner
 
         }
 
-    }
-
-    public class StatusEvent : EventArgs
-    {
-        public TunerStatus nim_status { get; set; }
     }
 }

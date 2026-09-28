@@ -134,6 +134,14 @@ namespace opentuner
                         _settings.enable_mqtt_checkbox = false;
                         break;
 
+                    case "--enableplutoctrl":
+                        _settings.enable_plutoctrl_checkbox = true;
+                        break;
+
+                    case "--disableplutoctrl":
+                        _settings.enable_plutoctrl_checkbox = false;
+                        break;
+
                     case "--enablequicktune":
                         _settings.enable_quicktune_checkbox = true;
                         break;
@@ -328,6 +336,9 @@ namespace opentuner
             checkBatcSpectrum.Checked = _settings.enable_spectrum_checkbox;
             checkBatcChat.Checked = _settings.enable_chatform_checkbox;
             checkMqttClient.Checked = _settings.enable_mqtt_checkbox;
+            checkMqttClient.Enabled = _settings.show_mqtt_feature;
+            checkPlutoCtrl.Checked = _settings.enable_plutoctrl_checkbox;
+            checkPlutoCtrl.Enabled = _settings.show_plutoctrl_feature;
             checkQuicktune.Checked = _settings.enable_quicktune_checkbox;
             checkDATVReporter.Checked = _settings.enable_datvreporter_checkbox;
 
@@ -626,6 +637,9 @@ namespace opentuner
                     mqtt_client.Disconnect();
                 }
 
+                if (pluto_client != null)
+                    pluto_client.Close();
+
                 if (batc_spectrum != null)
                     batc_spectrum.Close();
 
@@ -800,6 +814,13 @@ namespace opentuner
 
         private void configureCallsignToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            // The Pluto menu is always visible regardless of the "Pluto Control (F5OEO)" checkbox,
+            // so pluto_client can still be null here (not connected, or Pluto Control unchecked).
+            if (pluto_client == null)
+            {
+                Log.Warning("Pluto Control is not active - enable \"Pluto Control (F5OEO)\" and connect first");
+                return;
+            }
             pluto_client.ConfigureCallsignAndReboot("ZR6TG");
         }
 
@@ -1070,6 +1091,18 @@ namespace opentuner
                 DiagnosticsHelper.Measure("Connect: MQTT", () => mqtt_client = new MqttManager());
             }
 
+            if (checkPlutoCtrl.Checked)
+            {
+                if (mqtt_client != null)
+                {
+                    DiagnosticsHelper.Measure("Connect: Pluto Control", () => pluto_client = new F5OEOPlutoControl(mqtt_client));
+                }
+                else
+                {
+                    Log.Warning("Pluto Control requires MQTT to be enabled too - not started");
+                }
+            }
+
             if (checkDATVReporter.Checked)
             {
                 DiagnosticsHelper.Measure("Connect: DATV reporter", () =>
@@ -1122,6 +1155,11 @@ namespace opentuner
         private void checkMqttClient_CheckedChanged(object sender, EventArgs e)
         {
             _settings.enable_mqtt_checkbox = checkMqttClient.Checked;
+        }
+
+        private void checkPlutoCtrl_CheckedChanged(object sender, EventArgs e)
+        {
+            _settings.enable_plutoctrl_checkbox = checkPlutoCtrl.Checked;
         }
 
         private void checkQuicktune_CheckedChanged(object sender, EventArgs e)

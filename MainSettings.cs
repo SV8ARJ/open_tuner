@@ -40,11 +40,16 @@ namespace opentuner
         public bool enable_spectrum_checkbox = true;
         public bool enable_chatform_checkbox = true;
         public bool enable_mqtt_checkbox = false;
+        // Grays the "MQTT" checkbox out entirely (Enabled, not just Checked) - for users who only
+        // want OpenTuner as receive software and never touch MQTT status publishing/Pluto control.
+        public bool show_mqtt_feature = true;
         public bool enable_quicktune_checkbox = false;
         public bool enable_datvreporter_checkbox = false;
 
-        // future
         public bool enable_plutoctrl_checkbox = false;
+        // Grays the "Pluto Control (F5OEO)" checkbox out entirely (Enabled, not just Checked) -
+        // it controls a separate DATV *transmitter*, out of scope for most OpenTuner (receive) users.
+        public bool show_plutoctrl_feature = true;
 
         public int default_source = 0;
         public bool mute_at_startup = true;

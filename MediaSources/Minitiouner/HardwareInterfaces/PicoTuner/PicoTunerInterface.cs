@@ -44,7 +44,6 @@ namespace opentuner
         static byte[] MPSSEbuffer = new byte[500];
         static byte[] InputBuffer = new byte[500];
         static byte[] InputBuffer2 = new byte[500];
-        static uint BytesAvailable = 0;
         static byte I2C_Status = 0;
         public bool Running = true;
 

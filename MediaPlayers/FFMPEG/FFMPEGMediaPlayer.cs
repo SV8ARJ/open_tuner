@@ -193,10 +193,7 @@ namespace opentuner.MediaPlayers.FFMPEG
         public bool ts_sync = false;
         public bool end = false;
 
-        BinaryWriter testFile = null;
-
-
-        public MediaStream(CircularBuffer TSDataQueue) 
+        public MediaStream(CircularBuffer TSDataQueue)
         {
             ts_data_queue = TSDataQueue;
         }
