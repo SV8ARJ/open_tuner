@@ -295,7 +295,8 @@
             resources.ApplyResources(this.checkPlutoCtrl, "checkPlutoCtrl");
             this.checkPlutoCtrl.Name = "checkPlutoCtrl";
             this.checkPlutoCtrl.UseVisualStyleBackColor = true;
-            // 
+            this.checkPlutoCtrl.CheckedChanged += new System.EventHandler(this.checkPlutoCtrl_CheckedChanged);
+            //
             // linkQuickTuneSettings
             // 
             resources.ApplyResources(this.linkQuickTuneSettings, "linkQuickTuneSettings");

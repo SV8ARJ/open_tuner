@@ -195,12 +195,6 @@ namespace opentuner.MediaSources.Minitiouner
 
         public string HardwareDevice { get; set; }
 
-        private int _hardwareInterface = 0;
-
-        // 0 = ftdi
-        // 1 = picotuner
-        // 2 = picotuner ethernet
-
         private SettingsManager<MinitiounerSettings> _settingsManager;
         private MinitiounerSettings _settings;
 

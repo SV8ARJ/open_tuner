@@ -68,14 +68,13 @@ namespace opentuner.Transmit
             _modulator_properties.AddItem("mod_fec", "FEC");
             _modulator_properties.AddItem("mod_fec_mode", "FEC Mode");
             _modulator_properties.AddItem("mod_mod", "Mod");
-            //_pluto_control_window.Show();
 
             _hardware_properties = new DynamicPropertyGroup("Hardware", _pluto_control_window.overViewPage);
             _hardware_properties.AddItem("hw_mode", "Mode", _genericContextStrip);
             _hardware_properties.AddItem("hw_temperature", "Temperature");
             _hardware_properties.AddItem("callsign", "Callsign");
 
-
+            _pluto_control_window.Show();
         }
 
         private ToolStripMenuItem ConfigureMenuItem(string Text, PlutoConfigCommand command, int option)

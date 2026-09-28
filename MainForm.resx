@@ -580,7 +580,7 @@
     <value>True</value>
   </data>
   <data name="checkPlutoCtrl.Enabled" type="System.Boolean, mscorlib">
-    <value>False</value>
+    <value>True</value>
   </data>
   <data name="checkPlutoCtrl.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
     <value>NoControl</value>
