@@ -137,6 +137,12 @@ namespace opentuner
                     temp |= (byte)((stv6120_regs.STV6120_CTRL8_TCAL_DIV_2 << stv6120_regs.STV6120_CTRL8_TCAL_SHIFT) |
                               (stv6120_regs.STV6120_CTRL8_CALTIME_500US << stv6120_regs.STV6120_CTRL8_CALTIME_SHIFT));     // changed from TCAL_SHIFT
 
+                    // Keep the ctrl8 shadow in sync with what was just written (unlike ctrl7/ctrl16,
+                    // this used to only update the local `temp`) - later CFHF writes OR the CFHF
+                    // field into `ctrl8` to preserve the rest of the register (see set_cfhf below);
+                    // with ctrl8 stuck at its 0 default, those writes silently zeroed the TCAL/
+                    // CALTIME bits configured here right back out on every retune.
+                    ctrl8 = temp;
                     err = stv6120_write_reg(stv6120_regs.STV6120_CTRL8, temp);
                 }
 
@@ -144,7 +150,8 @@ namespace opentuner
                 {
                     err = stv6120_read_reg(stv6120_regs.STV6120_CTRL17, ref temp);
                     temp &= (byte)(~stv6120_regs.STV6120_CTRL8_CALTIME_MASK);
-                    temp |= (byte)(stv6120_regs.STV6120_CTRL8_CALTIME_500US << stv6120_regs.STV6120_CTRL8_CALTIME_SHIFT);     // changed from TCAL_SHIFT   
+                    temp |= (byte)(stv6120_regs.STV6120_CTRL8_CALTIME_500US << stv6120_regs.STV6120_CTRL8_CALTIME_SHIFT);     // changed from TCAL_SHIFT
+                    ctrl17 = temp; // same reasoning as ctrl8 above
                     err = stv6120_write_reg(stv6120_regs.STV6120_CTRL17, temp);
                 }
             }
@@ -529,7 +536,7 @@ namespace opentuner
                 (
                     nimtuner == TUNER_1 ? stv6120_regs.STV6120_CTRL6 : stv6120_regs.STV6120_CTRL15,
                     (byte)(
-                        ((f & 0x00038000) >> 15) |                                          /* set f[17:15] */
+                        (byte)((f & 0x00038000) >> 15) |                                    /* set f[17:15] */
                         (icp << stv6120_regs.STV6120_CTRL6_ICP_SHIFT) |                                  /* ICP[2:0] */
                         stv6120_regs.STV6120_CTRL6_RESERVED                                              /* reserved bit */
                     )
