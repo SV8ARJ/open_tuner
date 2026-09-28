@@ -271,7 +271,7 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             }
             catch (Exception ex)
             {
-
+                Log.Debug(ex, "BATC spectrum: update failed");
             }
         }
 
@@ -365,7 +365,7 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             }
             catch (Exception ex)
             {
-
+                Log.Debug(ex, "BATC spectrum: update failed");
             }
 
         }
@@ -541,7 +541,7 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             }
             catch (Exception ex)
             {
-
+                Log.Debug(ex, "BATC spectrum: update failed");
             }
         }
 

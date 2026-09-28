@@ -88,7 +88,8 @@ namespace opentuner.ExtraFeatures.BATCWebchat
 
         public void Close()
         {
-            wc_settingsManager.SaveSettings(wc_settings);
+            // _form.Close() raises FormClosing, which already saves the settings (_form_FormClosing) -
+            // saving here too just wrote the same file twice on every app shutdown.
             _form.Close();
         }
     }

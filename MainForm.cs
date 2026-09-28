@@ -260,6 +260,9 @@ namespace opentuner
                         i += 1;
                         break;
 
+                    case "--breakonstall":
+                        break;
+
                     default:
                         Log.Warning("Unknown command line param: " + args[i]);
                         break;
@@ -358,7 +361,8 @@ namespace opentuner
 
             videoSource = MediaSource;
 
-            int video_players_required = videoSource.Initialize(ChangeVideo, PropertiesPage);
+            int video_players_required = 0;
+            DiagnosticsHelper.Measure("Connect: source Initialize", () => video_players_required = videoSource.Initialize(ChangeVideo, PropertiesPage));
 
             if (video_players_required < 0)
             {
@@ -372,33 +376,51 @@ namespace opentuner
             // preferred player to use for each video view
             // 0 = vlc, 1 = ffmpeg, 2 = mpv
             Log.Information("Configuring Media Players");
-            _mediaPlayers = ConfigureMediaPlayers(videoSource.GetVideoSourceCount(), _settings.mediaplayer_preferences, _settings.mediaplayer_windowed );
-            videoSource.ConfigureVideoPlayers(_mediaPlayers);
+            DiagnosticsHelper.Measure("Connect: media players", () =>
+            {
+                _mediaPlayers = ConfigureMediaPlayers(videoSource.GetVideoSourceCount(), _settings.mediaplayer_preferences, _settings.mediaplayer_windowed );
+                videoSource.ConfigureVideoPlayers(_mediaPlayers);
+            });
             videoSource.ConfigureMediaPath(_settings.media_path);
 
             // set recorders
-            _ts_recorders = ConfigureTSRecorders(videoSource, _settings.media_video_path);
-            videoSource.ConfigureTSRecorders(_ts_recorders);
+            DiagnosticsHelper.Measure("Connect: TS recorders and streamers", () =>
+            {
+                _ts_recorders = ConfigureTSRecorders(videoSource, _settings.media_video_path);
+                videoSource.ConfigureTSRecorders(_ts_recorders);
 
-            // set udp streamers
-            _ts_streamers = ConfigureTSStreamers(videoSource, _settings.streamer_udp_hosts, _settings.streamer_udp_ports);
-            videoSource.ConfigureTSStreamers(_ts_streamers);
+                // set udp streamers
+                _ts_streamers = ConfigureTSStreamers(videoSource, _settings.streamer_udp_hosts, _settings.streamer_udp_ports);
+                videoSource.ConfigureTSStreamers(_ts_streamers);
+            });
 
             // update gui
-            SourcePage.Hide();
-            tabControl1.TabPages.Remove(SourcePage);
-            tabControl1.TabPages.Add(PropertiesPage);
-
-            // extra tabs next to "Properties" (e.g. "Expert", "Frequency") if the source provides any
-            foreach (var extra_tab in videoSource.GetExtraTabs())
+            DiagnosticsHelper.Measure("Connect: tabs", () =>
             {
-                TabPage extra_page = new TabPage(extra_tab.Key);
-                extra_page.Controls.Add(extra_tab.Value);
-                tabControl1.TabPages.Add(extra_page);
-            }
+                DiagnosticsHelper.Measure("Connect: tabs, switch to properties page", () =>
+                {
+                    SourcePage.Hide();
+                    tabControl1.TabPages.Remove(SourcePage);
+                    tabControl1.TabPages.Add(PropertiesPage);
+                });
 
-            tabControl1.Width = 100;
-            tabControl1.Update();
+                // extra tabs next to "Properties" (e.g. "Expert", "Frequency") if the source provides any
+                List<KeyValuePair<string, Control>> extra_tabs = null;
+                DiagnosticsHelper.Measure("Connect: tabs, create extra tabs", () => extra_tabs = videoSource.GetExtraTabs());
+
+                DiagnosticsHelper.Measure("Connect: tabs, add extra tabs", () =>
+                {
+                    foreach (var extra_tab in extra_tabs)
+                    {
+                        TabPage extra_page = new TabPage(extra_tab.Key);
+                        extra_page.Controls.Add(extra_tab.Value);
+                        tabControl1.TabPages.Add(extra_page);
+                    }
+                });
+
+                tabControl1.Width = 100;
+                DiagnosticsHelper.Measure("Connect: tabs, update (repaint)", () => tabControl1.Update());
+            });
             videoSource.OnSourceData += VideoSource_OnSourceData;
 
             return true;
@@ -522,8 +544,8 @@ namespace opentuner
                     Log.Information("Ping");
                 }
 
-                videoSource.StartStreaming(video_number);
-                _mediaPlayers[video_number].Play();
+                opentuner.Utilities.DiagnosticsHelper.Measure("Source StartStreaming " + video_number, () => videoSource.StartStreaming(video_number));
+                opentuner.Utilities.DiagnosticsHelper.Measure("Player " + _mediaPlayers[video_number].GetName() + " Play " + video_number, () => _mediaPlayers[video_number].Play());
                 // Start with volume "muted".
                 // The real audio volume is set later.
                 // Reason for muting here:
@@ -543,8 +565,8 @@ namespace opentuner
 
             if (video_number < _mediaPlayers.Count)
             {
-                videoSource.StopStreaming(video_number);
-                _mediaPlayers[video_number].Stop();
+                opentuner.Utilities.DiagnosticsHelper.Measure("Source StopStreaming " + video_number, () => videoSource.StopStreaming(video_number));
+                opentuner.Utilities.DiagnosticsHelper.Measure("Player " + _mediaPlayers[video_number].GetName() + " Stop " + video_number, () => _mediaPlayers[video_number].Stop());
             }
         }
 
@@ -558,9 +580,24 @@ namespace opentuner
                 stop_video(video_number-1);
         }
 
+        private bool _closing;
+
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // Closing the source pumps messages (Application.DoEvents), a second close request (e.g. another
+            // click on the close button while the first one is still working) would run all of this a second time.
+            if (_closing)
+            {
+                Log.Information("Exiting: already closing, ignoring the second close request");
+                e.Cancel = true;
+                return;
+            }
+            _closing = true;
+
             Log.Information("Exiting...");
+
+            _uiWatchdog?.Dispose();
+            _uiWatchdog = null;
 
             Application.RemoveMessageFilter(this);
 
@@ -647,8 +684,12 @@ namespace opentuner
             Program.levelSwitch.MinimumLevel = lastMinimumLevel;
         }
 
+        private opentuner.Utilities.UiWatchdog _uiWatchdog;
+
         private void Form1_Load(object sender, EventArgs e)
         {
+            _uiWatchdog = new opentuner.Utilities.UiWatchdog();
+
             if (_settings.media_path.Length == 0 || _settings.media_path == AppDomain.CurrentDomain.BaseDirectory)
             {
                 _settings.media_path = AppDomain.CurrentDomain.BaseDirectory + "Screenshots\\";
@@ -996,32 +1037,38 @@ namespace opentuner
                 splitContainer2.Panel2.Show();
 
                 this.DoubleBuffered = true;
-                batc_spectrum = new BATCSpectrum(spectrum, videoSource.GetVideoSourceCount());
-                batc_spectrum.OnSignalSelected += Batc_spectrum_OnSignalSelected;
+                DiagnosticsHelper.Measure("Connect: BATC spectrum", () =>
+                {
+                    batc_spectrum = new BATCSpectrum(spectrum, videoSource.GetVideoSourceCount());
+                    batc_spectrum.OnSignalSelected += Batc_spectrum_OnSignalSelected;
+                });
             }
 
             if (checkBatcChat.Checked)
             {
                 qO100WidebandChatToolStripMenuItem.Visible = true;
-                batc_chat = new BATCChat(videoSource);
+                DiagnosticsHelper.Measure("Connect: BATC chat", () => batc_chat = new BATCChat(videoSource));
             }
 
             if (checkQuicktune.Checked)
             {
-                quickTune_control = new QuickTuneControl(videoSource);
+                DiagnosticsHelper.Measure("Connect: QuickTune", () => quickTune_control = new QuickTuneControl(videoSource));
             }
 
             if (checkMqttClient.Checked)
             {
-                mqtt_client = new MqttManager();
+                DiagnosticsHelper.Measure("Connect: MQTT", () => mqtt_client = new MqttManager());
             }
 
             if (checkDATVReporter.Checked)
             {
-                if (!datv_reporter.Connect())
+                DiagnosticsHelper.Measure("Connect: DATV reporter", () =>
                 {
-                    Log.Error("DATV Reporter can't connect - check your settings");
-                }
+                    if (!datv_reporter.Connect())
+                    {
+                        Log.Error("DATV Reporter can't connect - check your settings");
+                    }
+                });
             }
 
             if (_settings.mute_at_startup)
@@ -1248,6 +1295,20 @@ namespace opentuner
                 ExtraTool_hidden = false;
                 hideExtraToolStripMenuItem.Text = "Hide Spectrum";
             }
+        }
+
+        // Logs the exact moment Windows delivers the close request, before any of our own
+        // FormClosing code runs - lets us tell apart "Windows took a while to deliver WM_CLOSE"
+        // (something outside our message loop, e.g. a hung child/owned window blocking window
+        // activation) from "our own handler took a while to start" (see issue #6).
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_CLOSE = 0x0010;
+            if (m.Msg == WM_CLOSE)
+            {
+                Log.Information("MainForm: WM_CLOSE received (thread " + Environment.CurrentManagedThreadId + ")");
+            }
+            base.WndProc(ref m);
         }
 
         public bool PreFilterMessage(ref Message m)

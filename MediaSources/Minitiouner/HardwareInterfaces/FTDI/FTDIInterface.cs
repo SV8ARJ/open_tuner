@@ -120,6 +120,19 @@ namespace opentuner
 
         private byte Receive_Data_i2c(uint BytesToRead)
         {
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+                return Receive_Data_i2c_inner(BytesToRead);
+            }
+            finally
+            {
+                opentuner.Utilities.I2cStats.Add(t0);
+            }
+        }
+
+        private byte Receive_Data_i2c_inner(uint BytesToRead)
+        {
             uint NumBytesInQueue = 0;
             uint QueueTimeOut = 0;
             uint Buffer1Index = 0;
@@ -173,6 +186,19 @@ namespace opentuner
         // Write a buffer of data and check that it got sent without error
 
         private byte Send_Data_i2c(uint BytesToSend)
+        {
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+                return Send_Data_i2c_inner(BytesToSend);
+            }
+            finally
+            {
+                opentuner.Utilities.I2cStats.Add(t0);
+            }
+        }
+
+        private byte Send_Data_i2c_inner(uint BytesToSend)
         {
             NumBytesToSend = BytesToSend;
 
@@ -845,11 +871,17 @@ namespace opentuner
 
                     Log.Information("Description:" + deviceName);
 
+#if READ_FTDI_EEPROM
+                    // Disabled by default: reading the EEPROM takes about 0.4 s per FT2232H, and this detection runs on
+                    // the UI thread (about 1.5 s of frozen UI with a MiniTiouner Pro, see issue #6). The values were only
+                    // written to the log, the ports are assigned by the device description. Define READ_FTDI_EEPROM
+                    // (e.g. <DefineConstants> in opentuner.csproj) if information from the EEPROM is needed.
                     FTD2XX_NET.FTDI.FT2232H_EEPROM_STRUCTURE eeprom = new FTD2XX_NET.FTDI.FT2232H_EEPROM_STRUCTURE();
                     ftdi_device.ReadFT2232HEEPROM(eeprom);
 
                     Log.Information("A Fifo: " + eeprom.IFAIsFifo.ToString());
                     Log.Information("B Fifo: " + eeprom.IFBIsFifo.ToString());
+#endif
 
                     if (deviceName.Contains("NIM tuner A"))
                     {

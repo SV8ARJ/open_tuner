@@ -68,6 +68,7 @@ namespace opentuner.ExtraFeatures.MqttClient
             }
             catch (Exception ex)
             {
+                Log.Warning(ex, "MQTT: disconnect failed");
             }
         }
 

@@ -17,6 +17,7 @@ namespace opentuner
         /// The main entry point for the application.
         /// </summary>
         public static LoggingLevelSwitch levelSwitch;
+        public static bool BreakOnStall;
 
         [DllImport("user32.dll")]
         private static extern bool ShowWindow([In] IntPtr hWnd, [In] int nCmdShow);
@@ -57,6 +58,11 @@ namespace opentuner
                             }
                             i += 1;
                         }
+                        break;
+
+                    case "--breakonstall":
+                        // Visual Studio only: break into the debugger when the UI thread stops responding
+                        BreakOnStall = true;
                         break;
 
                     case "--hideconsolewindow":
@@ -155,6 +161,8 @@ namespace opentuner
                 .WriteTo.Console()
                 .WriteTo.File("logs\\ot_log_" + DateTime.Now.ToString("yyyy-dd-M--HH-mm-ss") + ".txt")
                 .CreateLogger();
+
+            opentuner.Utilities.DiagnosticsHelper.Install();
 
             // Always log the starting information
             // swith logging level to Information

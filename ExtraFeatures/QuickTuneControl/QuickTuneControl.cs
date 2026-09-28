@@ -62,6 +62,7 @@ namespace opentuner.ExtraFeatures.QuickTuneControl
             }
             catch (Exception ex)
             {
+                Log.Warning(ex, "QuickTune: frequency request failed");
             }
 
         }

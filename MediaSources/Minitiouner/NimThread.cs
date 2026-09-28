@@ -390,8 +390,14 @@ namespace opentuner
             return data;
         }
 
+        // where the last status cycle spent its time, for the warning about a slow cycle
+        private long _last_digole_ms;
+        private long _last_callback_ms;
+
         byte get_nim_status()
         {
+            _last_digole_ms = 0;
+            _last_callback_ms = 0;
             TunerStatus nim_status = new TunerStatus();
             nim_status.refresh_ms = update_refresh_time();
 
@@ -772,7 +778,9 @@ namespace opentuner
             // TunerStatus on every call, so drawing earlier showed modcod 0 ("DummyPL") all the time.
             if (digole_enabled && digole != null)
             {
+                var digole_sw = System.Diagnostics.Stopwatch.StartNew();
                 update_digole_display(nim_status);
+                _last_digole_ms = digole_sw.ElapsedMilliseconds;
             }
 
             // TSSTATUS - decoded TS_VALID/TS_ERR/sync bits, read directly via I2C (see
@@ -804,10 +812,12 @@ namespace opentuner
             }
 
             // send status callback if available
+            var callback_sw = System.Diagnostics.Stopwatch.StartNew();
             for ( int c = 0;c < status_callback.Count; c++)
             {
                 status_callback[c](nim_status);
             }
+            _last_callback_ms = callback_sw.ElapsedMilliseconds;
 
 
             reset = false;
@@ -986,8 +996,11 @@ namespace opentuner
                         // elapsed time (not just slow ones) so the moment Stop() is requested is
                         // visible relative to which get_nim_status() call was in flight.
                         var status_sw = System.Diagnostics.Stopwatch.StartNew();
+                        var i2c_before = opentuner.Utilities.I2cStats.Snapshot();
+                        long lock_wait_ms = 0;
                         lock (HwLock)
                         {
+                            lock_wait_ms = status_sw.ElapsedMilliseconds;
                             if (trigger_burst_0)
                             {
                                 trigger_burst_0 = false;
@@ -1007,7 +1020,15 @@ namespace opentuner
                             get_nim_status();
                         }
                         status_sw.Stop();
-                        Log.Debug("Nim Thread: get_nim_status() took " + status_sw.ElapsedMilliseconds + "ms, _stopRequested=" + _stopRequested);
+                        if (status_sw.ElapsedMilliseconds >= 1000)
+                        {
+                            var i2c_after = opentuner.Utilities.I2cStats.Snapshot();
+                            Log.Warning("Nim Thread: get_nim_status() took " + status_sw.ElapsedMilliseconds + "ms (waiting for HwLock " + lock_wait_ms + "ms, I2C " + (i2c_after.count - i2c_before.count) + " transfers " + (i2c_after.ms - i2c_before.ms) + "ms, Digole " + _last_digole_ms + "ms, status callbacks " + _last_callback_ms + "ms), _stopRequested=" + _stopRequested);
+                        }
+                        else
+                        {
+                            Log.Debug("Nim Thread: get_nim_status() took " + status_sw.ElapsedMilliseconds + "ms, _stopRequested=" + _stopRequested);
+                        }
                         Thread.Sleep(200);
                     }
                 }

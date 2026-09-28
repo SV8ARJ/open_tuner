@@ -55,7 +55,8 @@ namespace opentuner.MediaSources.WinterHill
                     //Log.Information(receivedMessage);
                 } 
                 catch (Exception ex)
-                {    
+                {
+                    Log.Debug(ex, "PicoWH broadcast listener: receive failed");
                 }
                 
 

@@ -246,6 +246,7 @@ namespace opentuner.MediaSources.WinterHill
             }
             catch (Exception ex)
             {
+                Log.Warning(ex, "WinterHill: stopping the video failed");
             }
 
             string command = "[to@wh] rcv=" + receiver_num.ToString() + ",freq=" + freq.ToString() + ",offset=" + _current_offset[device].ToString() + ",srate=" + sr.ToString()  + ",fplug=" + (_settings.RFPort[device] == 0 ? "A" : "B") + "\n";

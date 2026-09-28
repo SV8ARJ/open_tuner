@@ -678,6 +678,25 @@ namespace opentuner.MediaSources.Minitiouner
 
         private void UpdateTunerProperties(TunerStatus new_status)
         {
+            // Marshal to the UI thread once here instead of once per DynamicPropertyItem/DynamicPropertyGroup
+            // call below (see issue #6): each of the ~40 individual UpdateValue/UpdateColor/UpdateBigLabel
+            // calls in this method otherwise does its own separate Control.Invoke, called every ~200ms from
+            // NimThread while it holds HwLock - measured at up to ~2.3s of accumulated marshalling per status
+            // update under load, stalling channel changes, closing the BATC chat window and app shutdown for
+            // that whole time. Doing it once here makes every InvokeRequired check below false, so they fall
+            // straight through to a direct (already-on-the-UI-thread) update.
+            if (_parent != null && _parent.InvokeRequired)
+            {
+                try
+                {
+                    _parent.Invoke(new Action<TunerStatus>(UpdateTunerProperties), new_status);
+                }
+                catch (Exception ex) when (ex is InvalidOperationException || ex is ObjectDisposedException || ex is System.ComponentModel.InvalidAsynchronousStateException)
+                {
+                }
+                return;
+            }
+
             CheckSrFallback(new_status);
 
             double dbmargin = 0;
@@ -801,6 +820,7 @@ namespace opentuner.MediaSources.Minitiouner
             }
             catch (Exception ex)
             {
+                Log.Debug(ex, "MiniTiouner: dB margin update failed");
             }
 
             last_dbm_0 = db_margin_text;
@@ -830,7 +850,7 @@ namespace opentuner.MediaSources.Minitiouner
             
             source_data.demod_locked = (new_status.T1P2_demod_status >  1);
 
-            OnSourceData?.Invoke(0, source_data, "Tuner 1");
+            opentuner.Utilities.DiagnosticsHelper.MeasureSlow("Status update tuner 1 (OnSourceData)", 250, () => OnSourceData?.Invoke(0, source_data, "Tuner 1"));
 
             if (ts_devices == 2 && _tuner2_properties != null)
             {
@@ -920,6 +940,7 @@ namespace opentuner.MediaSources.Minitiouner
                 }
                 catch (Exception ex)
                 {
+                    Log.Debug(ex, "MiniTiouner: dB margin update failed");
                 }
 
                 last_dbm_1 = db_margin_text;
@@ -948,7 +969,7 @@ namespace opentuner.MediaSources.Minitiouner
                         source_data_2.volume = _media_player[1].GetVolume();
                 }
 
-                OnSourceData?.Invoke(1, source_data_2, "Tuner 2");
+                opentuner.Utilities.DiagnosticsHelper.MeasureSlow("Status update tuner 2 (OnSourceData)", 250, () => OnSourceData?.Invoke(1, source_data_2, "Tuner 2"));
 
             }
         }
