@@ -49,7 +49,7 @@ namespace opentuner
         public bool enable_plutoctrl_checkbox = false;
         // Grays the "Pluto Control (F5OEO)" checkbox out entirely (Enabled, not just Checked) -
         // it controls a separate DATV *transmitter*, out of scope for most OpenTuner (receive) users.
-        public bool show_plutoctrl_feature = true;
+        public bool show_plutoctrl_feature = false;
 
         public int default_source = 0;
         public bool mute_at_startup = true;

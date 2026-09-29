@@ -74,12 +74,19 @@
     <Exec Command="git rev-parse --abbrev-ref HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" ContinueOnError="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="GitBranchRaw" />
     </Exec>
+    <!-- Flags: tags = include lightweight tags; always = bare hash if no tag; dirty = uncommitted changes.
+         Result e.g. "beta3" (exactly on tag), "beta3-5-g28470d2" (5 commits after), "...-dirty". -->
+    <Exec Command="git describe --tags --always --dirty" ConsoleToMSBuild="true" StandardOutputImportance="low" ContinueOnError="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitDescribeRaw" />
+    </Exec>
     <PropertyGroup>
-      <GitBranch Condition="'$(GitBranchRaw)' != ''">$(GitBranchRaw)</GitBranch>
+      <GitDescribe Condition="'$(GitDescribeRaw)' != ''">$(GitDescribeRaw.Replace('V0.B-dh1rk-', ''))</GitDescribe>
+      <GitDescribe Condition="'$(GitDescribe)' == ''">unknown</GitDescribe>
+      <GitBranch Condition="'$(GitBranchRaw)' != ''">$(GitBranchRaw.Split('_')[0])</GitBranch>
       <GitBranch Condition="'$(GitBranch)' == ''">unknown</GitBranch>
       <GitUser Condition="'$(GitUser)' == ''">DH1RK</GitUser>
     </PropertyGroup>
-    <WriteLinesToFile File="$(IntermediateOutputPath)gen.cs" Overwrite="true" Lines="static partial class Builtin { public static long CompileTime = $([System.DateTime]::UtcNow.Ticks) %3B public static string GitBranch = &quot;$(GitBranch)&quot; %3B public static string GitUser = &quot;$(GitUser)&quot; %3B }" />
+    <WriteLinesToFile File="$(IntermediateOutputPath)gen.cs" Overwrite="true" Lines="static partial class Builtin { public static long CompileTime = $([System.DateTime]::UtcNow.Ticks) %3B public static string GitBranch = &quot;$(GitBranch)&quot; %3B public static string GitDescribe = &quot;$(GitDescribe)&quot; %3B public static string GitUser = &quot;$(GitUser)&quot; %3B }" />
     <ItemGroup>
       <Compile Include="$(IntermediateOutputPath)gen.cs" />
     </ItemGroup>

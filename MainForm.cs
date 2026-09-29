@@ -280,6 +280,15 @@ namespace opentuner
             }
         }
 
+        // "" on main, "-#13" on branch issue-13_..., "-<branch>" on any other branch.
+        private static string BranchSuffix()
+        {
+            string b = Builtin.GitBranch;
+            if (b == "main" || b == "unknown") return "";
+            var m = System.Text.RegularExpressions.Regex.Match(b, @"^issue-(\d+)");
+            return m.Success ? "-#" + m.Groups[1].Value : "-" + b;
+        }
+
         public MainForm(string[] args)
         {
             var compileTime = new DateTime(Builtin.CompileTime, DateTimeKind.Utc);
@@ -296,7 +305,7 @@ namespace opentuner
             // 2024/07/09"), and InitializeComponent() applies it via resources.ApplyResources(this,
             // "$this") - setting Text before that call gets silently overwritten by the resx value
             // every time, regardless of what it's set to.
-            Text = "Open Tuner (" + Builtin.GitUser + " - " + Builtin.GitBranch + " - " + compileTime_usFormat + ")";
+            Text = "Open Tuner (" + Builtin.GitUser + " - " + Builtin.GitDescribe + BranchSuffix() + " - " + compileTime_usFormat + ")";
 
             // Always log the version information
             // swith logging level to Information

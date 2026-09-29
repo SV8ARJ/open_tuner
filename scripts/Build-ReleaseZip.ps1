@@ -32,6 +32,10 @@
 .PARAMETER Repo
     "owner/repo" to upload to when -Upload is set. Default: DH1RK/open_tuner.
 
+.PARAMETER AllowUnclean
+    Skip the release guards (tag must exist, HEAD must be that tag, no modified tracked files,
+    baked version must equal the tag without the "V0.B-dh1rk-" prefix). For test packaging only.
+
 .EXAMPLE
     .\scripts\Build-ReleaseZip.ps1 -Tag "V0.B-dh1rk-beta4"
 
@@ -48,7 +52,9 @@ param(
 
     [switch]$Upload,
 
-    [string]$Repo = "DH1RK/open_tuner"
+    [string]$Repo = "DH1RK/open_tuner",
+
+    [switch]$AllowUnclean
 )
 
 $ErrorActionPreference = "Stop"
@@ -57,10 +63,35 @@ $src = Join-Path $repoRoot "bin\$Configuration"
 $staging = Join-Path $repoRoot "bin\release-package-$Tag"
 $zipPath = Join-Path $repoRoot "opentuner-$Tag-win-x64.zip"
 
+# The window title shows `git describe` (baked in at build time, see opentuner.csproj). A clean
+# release build must therefore be made from a checkout where HEAD *is* the tag and no tracked file
+# is modified - otherwise the title reads e.g. "beta4-3-g1a2b3c4-dirty" instead of "beta4".
+# Untracked files don't count. -AllowUnclean skips these checks for test packaging.
+$expectedVersion = $Tag -replace '^V0\.B-dh1rk-', ''
+if (-not $AllowUnclean) {
+    $tagCommit = (git -C $repoRoot rev-parse -q --verify "refs/tags/$Tag^{commit}")
+    if (-not $tagCommit) { throw "Tag '$Tag' does not exist. Create it first (git tag $Tag) or use -AllowUnclean for a test build." }
+    $head = (git -C $repoRoot rev-parse HEAD)
+    if ($tagCommit -ne $head) { throw "HEAD ($($head.Substring(0,7))) is not tag '$Tag' ($($tagCommit.Substring(0,7))). Check out the tagged commit or use -AllowUnclean." }
+    $dirty = git -C $repoRoot status --porcelain --untracked-files=no
+    if ($dirty) { throw "Tracked files are modified (would show '-dirty' in the title):`n$dirty`nCommit/stash them or use -AllowUnclean." }
+    if ($SkipBuild) { Write-Warning "-SkipBuild: the title version comes from the last build, verifying it below." }
+}
+
 if (-not $SkipBuild) {
     Write-Host "Building $Configuration..."
     dotnet build (Join-Path $repoRoot "opentuner.sln") -c $Configuration
     if ($LASTEXITCODE -ne 0) { throw "dotnet build failed with exit code $LASTEXITCODE" }
+}
+
+# Verify what actually got baked into the exe (obj\<Configuration>\gen.cs, written by opentuner.csproj).
+$gen = Join-Path $repoRoot "obj\$Configuration\gen.cs"
+if (Test-Path $gen) {
+    $baked = [regex]::Match((Get-Content $gen -Raw), 'GitDescribe = "([^"]*)"').Groups[1].Value
+    Write-Host "Version baked into the build (window title): $baked"
+    if (-not $AllowUnclean -and $baked -ne $expectedVersion) {
+        throw "Baked version '$baked' does not match expected '$expectedVersion' - rebuild from the tagged, clean checkout (not -SkipBuild after tagging)."
+    }
 }
 
 if (-not (Test-Path $src)) { throw "Build output not found: $src" }
