@@ -49,6 +49,25 @@ namespace opentuner.Utilities
         // height of the property row
         private const int ItemHeight = 20;
 
+        // Width of the title column in pixels, 0 = half of the group as usual. A group can make it only as wide as its longest
+        // title (DynamicPropertyGroup.UseCompactTitles) so the value gets the room.
+        private int _compact_title_width = 0;
+
+        public string TitleText => _title + " :";
+
+        public void SetCompactTitleWidth(int width)
+        {
+            _compact_title_width = width;
+            if (_titleLabel != null)
+                _parent_Resize(this, EventArgs.Empty);
+        }
+
+        private int TitleWidth()
+        {
+            int half = _parent.Width / 2 - 5;
+            return _compact_title_width > 0 ? Math.Min(_compact_title_width, half) : half;
+        }
+
         private void UpdateLabel(Label Lbl, Object obj)
         {
 
@@ -178,7 +197,7 @@ namespace opentuner.Utilities
 
         protected virtual void _parent_Resize(object sender, EventArgs e)
         {
-            _titleLabel.Width = _parent.Width / 2 - 5;
+            _titleLabel.Width = TitleWidth();
             _valueLabel.Left = _titleLabel.Left + _titleLabel.Width + 5;
             _valueLabel.Width = _parent.Width - _valueLabel.Left - 5;
         }

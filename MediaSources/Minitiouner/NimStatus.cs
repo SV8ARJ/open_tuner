@@ -15,6 +15,7 @@ namespace opentuner
         public byte chip_mid { get; set; }          // MID / DID registers, read once at init
         public byte chip_did { get; set; }
         public bool pll_locked { get; set; }        // PLLSTAT.PLLLOCK
+        public uint mclk_hz { get; set; } = 135000000;  // demodulator master clock (lowered for low symbol rates), for the TS bit rate
         public byte bcherr { get; set; }            // raw BCHERR register: bit 4 ERRORFLAG, bits 3..0 BCH_ERRORS_COUNTER (chip-wide)
 
         // average time between two status polls in ms (NimThread loop incl. its 200 ms pause)

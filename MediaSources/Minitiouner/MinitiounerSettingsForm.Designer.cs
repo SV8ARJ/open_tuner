@@ -34,16 +34,16 @@
             this.comboHardwareInterface = new System.Windows.Forms.ComboBox();
             this.label1 = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.label7 = new System.Windows.Forms.Label();
+            this.labelDefaultRfInput = new System.Windows.Forms.Label();
             this.ComboDefaultRFInput = new System.Windows.Forms.ComboBox();
             this.comboSupplyBDefault = new System.Windows.Forms.ComboBox();
             this.comboSupplyADefault = new System.Windows.Forms.ComboBox();
             this.txtTuner2FreqOffset = new System.Windows.Forms.TextBox();
             this.txtTuner1FreqOffset = new System.Windows.Forms.TextBox();
-            this.label6 = new System.Windows.Forms.Label();
-            this.label5 = new System.Windows.Forms.Label();
-            this.label4 = new System.Windows.Forms.Label();
-            this.label3 = new System.Windows.Forms.Label();
+            this.labelLnbBSupplyDefault = new System.Windows.Forms.Label();
+            this.labelLnbASupplyDefault = new System.Windows.Forms.Label();
+            this.labelTuner2FreqOffset = new System.Windows.Forms.Label();
+            this.labelTuner1FreqOffset = new System.Windows.Forms.Label();
             this.labelTuner1Correction = new System.Windows.Forms.Label();
             this.labelTuner2Correction = new System.Windows.Forms.Label();
             this.txtTuner1FreqCorrection = new System.Windows.Forms.TextBox();
@@ -54,6 +54,7 @@
             this.txtDigoleAddress = new System.Windows.Forms.TextBox();
             this.labelDigoleAddress = new System.Windows.Forms.Label();
             this.checkEnableDigole = new System.Windows.Forms.CheckBox();
+            this.checkLnbControl = new System.Windows.Forms.CheckBox();
             this.txtDigoleCallsign = new System.Windows.Forms.TextBox();
             this.labelDigoleCallsign = new System.Windows.Forms.Label();
             this.txtDigoleLocator = new System.Windows.Forms.TextBox();
@@ -79,6 +80,16 @@
             this.groupHardwareInterface.TabIndex = 0;
             this.groupHardwareInterface.TabStop = false;
             this.groupHardwareInterface.Text = "Hardware Interface";
+            //
+            // checkLnbControl
+            //
+            this.checkLnbControl.AutoSize = true;
+            this.checkLnbControl.Location = new System.Drawing.Point(21, 165);
+            this.checkLnbControl.Name = "checkLnbControl";
+            this.checkLnbControl.Size = new System.Drawing.Size(360, 20);
+            this.checkLnbControl.TabIndex = 4;
+            this.checkLnbControl.Text = "LNB voltage can be switched (untick for the E-Tiouner)";
+            this.checkLnbControl.UseVisualStyleBackColor = true;
             // 
             // txtIpAddress
             // 
@@ -126,16 +137,17 @@
             // 
             // groupBox1
             // 
-            this.groupBox1.Controls.Add(this.label7);
+            this.groupBox1.Controls.Add(this.checkLnbControl);
+            this.groupBox1.Controls.Add(this.labelDefaultRfInput);
             this.groupBox1.Controls.Add(this.ComboDefaultRFInput);
             this.groupBox1.Controls.Add(this.comboSupplyBDefault);
             this.groupBox1.Controls.Add(this.comboSupplyADefault);
             this.groupBox1.Controls.Add(this.txtTuner2FreqOffset);
             this.groupBox1.Controls.Add(this.txtTuner1FreqOffset);
-            this.groupBox1.Controls.Add(this.label6);
-            this.groupBox1.Controls.Add(this.label5);
-            this.groupBox1.Controls.Add(this.label4);
-            this.groupBox1.Controls.Add(this.label3);
+            this.groupBox1.Controls.Add(this.labelLnbBSupplyDefault);
+            this.groupBox1.Controls.Add(this.labelLnbASupplyDefault);
+            this.groupBox1.Controls.Add(this.labelTuner2FreqOffset);
+            this.groupBox1.Controls.Add(this.labelTuner1FreqOffset);
             this.groupBox1.Controls.Add(this.labelTuner1Correction);
             this.groupBox1.Controls.Add(this.labelTuner2Correction);
             this.groupBox1.Controls.Add(this.txtTuner1FreqCorrection);
@@ -144,20 +156,20 @@
             this.groupBox1.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Padding = new System.Windows.Forms.Padding(4, 4, 4, 4);
-            this.groupBox1.Size = new System.Drawing.Size(437, 277);
+            this.groupBox1.Size = new System.Drawing.Size(437, 307);
             this.groupBox1.TabIndex = 1;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Tuner Properties";
             // 
-            // label7
+            // labelDefaultRfInput
             // 
-            this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(21, 235);
-            this.label7.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label7.Name = "label7";
-            this.label7.Size = new System.Drawing.Size(104, 16);
-            this.label7.TabIndex = 9;
-            this.label7.Text = "Default RF Input:";
+            this.labelDefaultRfInput.AutoSize = true;
+            this.labelDefaultRfInput.Location = new System.Drawing.Point(21, 265);
+            this.labelDefaultRfInput.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelDefaultRfInput.Name = "labelDefaultRfInput";
+            this.labelDefaultRfInput.Size = new System.Drawing.Size(104, 16);
+            this.labelDefaultRfInput.TabIndex = 9;
+            this.labelDefaultRfInput.Text = "Default RF Input:";
             // 
             // ComboDefaultRFInput
             // 
@@ -168,7 +180,7 @@
             "Tuner 1 = A, Tuner 2 = B",
             "Tuner 1 = B, Tuner 2 = A",
             "Tuner 1 = B, Tuner 2 = B"});
-            this.ComboDefaultRFInput.Location = new System.Drawing.Point(179, 231);
+            this.ComboDefaultRFInput.Location = new System.Drawing.Point(179, 261);
             this.ComboDefaultRFInput.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.ComboDefaultRFInput.Name = "ComboDefaultRFInput";
             this.ComboDefaultRFInput.Size = new System.Drawing.Size(212, 24);
@@ -182,7 +194,7 @@
             "Off",
             "13V Vertical",
             "18V Horizontal"});
-            this.comboSupplyBDefault.Location = new System.Drawing.Point(179, 198);
+            this.comboSupplyBDefault.Location = new System.Drawing.Point(179, 228);
             this.comboSupplyBDefault.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.comboSupplyBDefault.Name = "comboSupplyBDefault";
             this.comboSupplyBDefault.Size = new System.Drawing.Size(212, 24);
@@ -196,7 +208,7 @@
             "Off",
             "13V Vertical",
             "18V Horizontal"});
-            this.comboSupplyADefault.Location = new System.Drawing.Point(179, 165);
+            this.comboSupplyADefault.Location = new System.Drawing.Point(179, 195);
             this.comboSupplyADefault.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.comboSupplyADefault.Name = "comboSupplyADefault";
             this.comboSupplyADefault.Size = new System.Drawing.Size(212, 24);
@@ -218,45 +230,45 @@
             this.txtTuner1FreqOffset.Size = new System.Drawing.Size(212, 22);
             this.txtTuner1FreqOffset.TabIndex = 4;
             // 
-            // label6
+            // labelLnbBSupplyDefault
             // 
-            this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(21, 202);
-            this.label6.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label6.Name = "label6";
-            this.label6.Size = new System.Drawing.Size(138, 16);
-            this.label6.TabIndex = 3;
-            this.label6.Text = "LNB B Supply Default:";
+            this.labelLnbBSupplyDefault.AutoSize = true;
+            this.labelLnbBSupplyDefault.Location = new System.Drawing.Point(21, 232);
+            this.labelLnbBSupplyDefault.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelLnbBSupplyDefault.Name = "labelLnbBSupplyDefault";
+            this.labelLnbBSupplyDefault.Size = new System.Drawing.Size(138, 16);
+            this.labelLnbBSupplyDefault.TabIndex = 3;
+            this.labelLnbBSupplyDefault.Text = "LNB B Supply Default:";
             // 
-            // label5
+            // labelLnbASupplyDefault
             // 
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(21, 169);
-            this.label5.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(138, 16);
-            this.label5.TabIndex = 2;
-            this.label5.Text = "LNB A Supply Default:";
+            this.labelLnbASupplyDefault.AutoSize = true;
+            this.labelLnbASupplyDefault.Location = new System.Drawing.Point(21, 199);
+            this.labelLnbASupplyDefault.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelLnbASupplyDefault.Name = "labelLnbASupplyDefault";
+            this.labelLnbASupplyDefault.Size = new System.Drawing.Size(138, 16);
+            this.labelLnbASupplyDefault.TabIndex = 2;
+            this.labelLnbASupplyDefault.Text = "LNB A Supply Default:";
             // 
-            // label4
+            // labelTuner2FreqOffset
             // 
-            this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(21, 73);
-            this.label4.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(123, 16);
-            this.label4.TabIndex = 1;
-            this.label4.Text = "Tuner 2 Freq Offset:";
+            this.labelTuner2FreqOffset.AutoSize = true;
+            this.labelTuner2FreqOffset.Location = new System.Drawing.Point(21, 73);
+            this.labelTuner2FreqOffset.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelTuner2FreqOffset.Name = "labelTuner2FreqOffset";
+            this.labelTuner2FreqOffset.Size = new System.Drawing.Size(123, 16);
+            this.labelTuner2FreqOffset.TabIndex = 1;
+            this.labelTuner2FreqOffset.Text = "Tuner 2 Freq Offset:";
             // 
-            // label3
+            // labelTuner1FreqOffset
             // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(21, 41);
-            this.label3.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(123, 16);
-            this.label3.TabIndex = 0;
-            this.label3.Text = "Tuner 1 Freq Offset:";
+            this.labelTuner1FreqOffset.AutoSize = true;
+            this.labelTuner1FreqOffset.Location = new System.Drawing.Point(21, 41);
+            this.labelTuner1FreqOffset.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelTuner1FreqOffset.Name = "labelTuner1FreqOffset";
+            this.labelTuner1FreqOffset.Size = new System.Drawing.Size(123, 16);
+            this.labelTuner1FreqOffset.TabIndex = 0;
+            this.labelTuner1FreqOffset.Text = "Tuner 1 Freq Offset:";
             // 
             // labelTuner1Correction
             // 
@@ -292,7 +304,7 @@
             // 
             // btnSave
             //
-            this.btnSave.Location = new System.Drawing.Point(353, 644);
+            this.btnSave.Location = new System.Drawing.Point(353, 674);
             this.btnSave.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(100, 28);
@@ -304,7 +316,7 @@
             // btnCancel
             //
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Location = new System.Drawing.Point(245, 644);
+            this.btnCancel.Location = new System.Drawing.Point(245, 674);
             this.btnCancel.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(100, 28);
@@ -324,7 +336,7 @@
             this.groupDigole.Controls.Add(this.txtDigoleAddress);
             this.groupDigole.Controls.Add(this.labelDigoleAddress);
             this.groupDigole.Controls.Add(this.checkEnableDigole);
-            this.groupDigole.Location = new System.Drawing.Point(16, 436);
+            this.groupDigole.Location = new System.Drawing.Point(16, 466);
             this.groupDigole.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.groupDigole.Name = "groupDigole";
             this.groupDigole.Padding = new System.Windows.Forms.Padding(4, 4, 4, 4);
@@ -422,7 +434,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoSize = true;
             this.CancelButton = this.btnCancel;
-            this.ClientSize = new System.Drawing.Size(473, 684);
+            this.ClientSize = new System.Drawing.Size(473, 714);
             this.ControlBox = false;
             this.Controls.Add(this.groupDigole);
             this.Controls.Add(this.btnCancel);
@@ -450,6 +462,7 @@
         private System.Windows.Forms.TextBox txtDigoleAddress;
         private System.Windows.Forms.Label labelDigoleAddress;
         private System.Windows.Forms.CheckBox checkEnableDigole;
+        private System.Windows.Forms.CheckBox checkLnbControl;
         private System.Windows.Forms.TextBox txtDigoleCallsign;
         private System.Windows.Forms.Label labelDigoleCallsign;
         private System.Windows.Forms.TextBox txtDigoleLocator;
@@ -463,16 +476,16 @@
         private System.Windows.Forms.ComboBox comboHardwareInterface;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.GroupBox groupBox1;
-        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.Label labelDefaultRfInput;
         private System.Windows.Forms.ComboBox ComboDefaultRFInput;
         private System.Windows.Forms.ComboBox comboSupplyBDefault;
         private System.Windows.Forms.ComboBox comboSupplyADefault;
         private System.Windows.Forms.TextBox txtTuner2FreqOffset;
         private System.Windows.Forms.TextBox txtTuner1FreqOffset;
-        private System.Windows.Forms.Label label6;
-        private System.Windows.Forms.Label label5;
-        private System.Windows.Forms.Label label4;
-        private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.Label labelLnbBSupplyDefault;
+        private System.Windows.Forms.Label labelLnbASupplyDefault;
+        private System.Windows.Forms.Label labelTuner2FreqOffset;
+        private System.Windows.Forms.Label labelTuner1FreqOffset;
         private System.Windows.Forms.Label labelTuner1Correction;
         private System.Windows.Forms.Label labelTuner2Correction;
         private System.Windows.Forms.TextBox txtTuner1FreqCorrection;

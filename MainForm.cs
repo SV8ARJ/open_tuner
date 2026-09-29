@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -352,7 +353,7 @@ namespace opentuner
             checkDATVReporter.Checked = _settings.enable_datvreporter_checkbox;
 
             // load available sources
-            _availableSources.Add(new MinitiounerSource());
+            _availableSources.Add(new MinitiounerMultiSource());
             _availableSources.Add(new LongmyndSource());
             _availableSources.Add(new WinterHillSource());
 
@@ -959,6 +960,11 @@ namespace opentuner
             if (video_info_display != null)
                 info_display.Add(video_info_display);
 
+            // the controls of this video field (volume display, info line, player), for the large view of one stream
+            while (_video_parts.Count <= nr)
+                _video_parts.Add(null);
+            _video_parts[nr] = seperate_window ? null : video_panels[nr].Controls.Cast<Control>().ToArray();
+
             return player;
         }
 
@@ -1078,10 +1084,160 @@ namespace opentuner
 
             int video_nr = (int)((Control)sender).Tag;
 
+            // With three or more streams a menu offers the large view of this stream, next to the info line.
+            // (In full screen, or with fewer streams, the right click still switches the info line at once.)
+            if (CanChangeVideoLayout)
+            {
+                var menu = new ContextMenuStrip();
+                if (_large_video != video_nr || _large_only)
+                    menu.Items.Add("Show large, the others below", null, (s, ev) => ShowLargeVideo(video_nr, false));
+                if (_large_video != video_nr || !_large_only)
+                    menu.Items.Add("Show only this stream", null, (s, ev) => ShowLargeVideo(video_nr, true));
+                if (_large_video >= 0)
+                    menu.Items.Add("Show all streams (grid)", null, (s, ev) => ShowVideoGrid());
+                menu.Items.Add(new ToolStripSeparator());
+                menu.Items.Add(InfoLineVisible(video_nr) ? "Hide info line" : "Show info line", null, (s, ev) => ToggleInfoLine(video_nr));
+                menu.Closed += (s, ev) => BeginInvoke(new MethodInvoker(menu.Dispose));
+                menu.Show(Cursor.Position);
+                return;
+            }
+
+            ToggleInfoLine(video_nr);
+        }
+
+        private bool InfoLineVisible(int video_nr)
+        {
+            return info_display.Count > video_nr && info_display[video_nr] != null && info_display[video_nr].Visible;
+        }
+
+        private void ToggleInfoLine(int video_nr)
+        {
             if (info_display.Count > video_nr)
             {
                 if (info_display[video_nr] != null)
                     _settings.show_video_info[video_nr] = info_display[video_nr].Visible = !info_display[video_nr].Visible;
+            }
+        }
+
+        // ---- large view of one stream (right click on the video) ----------------------------------------------------
+        // The controls of every video field are moved between the panels of the 2x2 grid (like the full screen does with
+        // the video). One stream on the whole top row and the others below it (one to three fields, the third split in
+        // two), or only that stream on the whole video area; "grid" puts everything back.
+
+        private readonly List<Control[]> _video_parts = new List<Control[]>();
+        private int _large_video = -1;          // the stream shown large, -1 = the grid
+        private bool _large_only = false;       // only that stream is shown
+        private SplitContainer _extra_bottom_split;
+
+        private bool CanChangeVideoLayout => _fullscreen_form == null && _video_parts.Count >= 3 && _video_parts.All(p => p != null);
+
+        private static void PlaceVideo(Control parent, Control[] parts)
+        {
+            foreach (var part in parts)
+                parent.Controls.Add(part);
+        }
+
+        private void TakeOutVideos()
+        {
+            foreach (var parts in _video_parts)
+            {
+                foreach (var part in parts)
+                    part.Parent?.Controls.Remove(part);
+            }
+
+            if (_extra_bottom_split != null)
+            {
+                _extra_bottom_split.Parent?.Controls.Remove(_extra_bottom_split);
+                _extra_bottom_split.Dispose();
+                _extra_bottom_split = null;
+            }
+        }
+
+        private void ShowLargeVideo(int video_nr, bool only_this)
+        {
+            if (!CanChangeVideoLayout || video_nr < 0 || video_nr >= _video_parts.Count)
+                return;
+
+            int count = _video_parts.Count;
+            var others = Enumerable.Range(0, count).Where(i => i != video_nr).ToList();
+
+            SuspendLayout();
+            try
+            {
+                TakeOutVideos();
+                _large_video = video_nr;
+                _large_only = only_this;
+
+                // the top row holds only this stream, over its whole width
+                splitContainer4.Panel2Collapsed = true;
+                PlaceVideo(splitContainer4.Panel1, _video_parts[video_nr]);
+
+                if (only_this)
+                {
+                    // no bottom row; the other streams stay in it, hidden, and keep running
+                    splitContainer3.Panel2Collapsed = true;
+                    splitContainer5.Panel2Collapsed = false;
+                    for (int i = 0; i < others.Count; i++)
+                        PlaceVideo(i == 0 ? splitContainer5.Panel1 : splitContainer5.Panel2, _video_parts[others[i]]);
+                }
+                else
+                {
+                    splitContainer3.Panel2Collapsed = false;
+
+                    if (others.Count == 1)
+                    {
+                        splitContainer5.Panel2Collapsed = true;
+                        PlaceVideo(splitContainer5.Panel1, _video_parts[others[0]]);
+                    }
+                    else if (others.Count == 2)
+                    {
+                        splitContainer5.Panel2Collapsed = false;
+                        PlaceVideo(splitContainer5.Panel1, _video_parts[others[0]]);
+                        PlaceVideo(splitContainer5.Panel2, _video_parts[others[1]]);
+                    }
+                    else
+                    {
+                        // three streams under the large one: the right field of the bottom row is split in two
+                        splitContainer5.Panel2Collapsed = false;
+                        _extra_bottom_split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Vertical };
+                        splitContainer5.Panel2.Controls.Add(_extra_bottom_split);
+                        PlaceVideo(splitContainer5.Panel1, _video_parts[others[0]]);
+                        PlaceVideo(_extra_bottom_split.Panel1, _video_parts[others[1]]);
+                        PlaceVideo(_extra_bottom_split.Panel2, _video_parts[others[2]]);
+
+                        splitContainer5.SplitterDistance = Math.Max(1, splitContainer5.Width / 3);
+                        _extra_bottom_split.SplitterDistance = Math.Max(1, _extra_bottom_split.Width / 2);
+                    }
+                }
+            }
+            finally
+            {
+                ResumeLayout(true);
+            }
+        }
+
+        private void ShowVideoGrid()
+        {
+            if (_large_video < 0)
+                return;
+
+            SuspendLayout();
+            try
+            {
+                TakeOutVideos();
+                _large_video = -1;
+                _large_only = false;
+
+                splitContainer3.Panel2Collapsed = false;
+                splitContainer4.Panel2Collapsed = false;
+                splitContainer5.Panel2Collapsed = false;
+
+                for (int i = 0; i < _video_parts.Count; i++)
+                    PlaceVideo(video_panels[i], _video_parts[i]);
+            }
+            finally
+            {
+                ResumeLayout(true);
             }
         }
 
@@ -1117,6 +1273,9 @@ namespace opentuner
         private List<OTMediaPlayer> ConfigureMediaPlayers(int amount, int[] playerPreference, bool[] windowed)
         {
             List<OTMediaPlayer> mediaPlayers = new List<OTMediaPlayer>();
+
+            _video_parts.Clear();
+            _large_video = -1;
 
             if (amount == 4)
             {

@@ -44,9 +44,9 @@ namespace opentuner.MediaSources.Minitiouner
         // properties management
         Control _parent = null;
 
-        private static DynamicPropertyGroup _tuner1_properties = null;
-        private static DynamicPropertyGroup _tuner2_properties = null;
-        private static DynamicPropertyGroup _source_properties = null;
+        private DynamicPropertyGroup _tuner1_properties = null;
+        private DynamicPropertyGroup _tuner2_properties = null;
+        private DynamicPropertyGroup _source_properties = null;
 
         // context menu strip
         ContextMenuStrip _genericContextStrip;
@@ -108,15 +108,8 @@ namespace opentuner.MediaSources.Minitiouner
             _expert_panel = new Panel();
             _expert_panel.Dock = DockStyle.Fill;
             _expert_panel.AutoScroll = true;
-            stv0910.AllowLowSrClock = _settings.LowSrClock;
-            stv0910.LowSrProfile = _settings.LowSrProfile;
-            stv0910.MiniTiouneInit = _settings.MiniTiouneInit;
-            stv0910.LowSrDvbS1 = _settings.LowSrDvbS1;
-            stv0910.LowSrSrScan = _settings.LowSrSrScan;
-            stv0910.LowSrManualSfr = _settings.LowSrManualSfr;
-            stv0910.CarrierPhaseAlgo = (byte)Math.Max(0, Math.Min(2, (int)_settings.CarrierPhaseAlgo));
-            stv0910.IqSwap = _settings.IqSwap;
-            stv6120.BasebandGainCode = (byte)Math.Max(0, Math.Min(8, _settings.BasebandGainDb / 2));
+            // (the receiver settings - low SR profile, carrier algorithm, baseband gain ... - are applied to this
+            // board's demodulator/tuner in NimThread.ApplyReceiverSettings)
 
             // "Special" tab panel: the per-tuner symbol rate / derotator / trim views, Minitiouner Properties below them
             _frequency_panel = new Panel();
@@ -127,8 +120,10 @@ namespace opentuner.MediaSources.Minitiouner
             _source_properties = new DynamicPropertyGroup("Minitiouner Properties", _frequency_panel);
             _source_properties.setID(99);
             _source_properties.AddItem("source_hw_interface", "Hardware Interface");
-            _source_properties.AddItem("source_chip_id", "Chip ID");
+            _source_properties.AddItem("source_chip_id", "Chip MID");
+            _source_properties.AddItem("source_chip_did", "Chip DID");
             _source_properties.AddItem("source_pll_status", "PLL Status");
+            _source_properties.UseCompactTitles();   // narrow title column: the values start close to their titles
 
             _tuner_forms = new List<TunerControlForm>();
             // tuner for each device
@@ -183,14 +178,14 @@ namespace opentuner.MediaSources.Minitiouner
         {
             // All groups are Dock=Top, so each BringToFront() moves the group below the ones before it:
             // Tuner 1, Tuner 2, Switches (the views bring themselves to the front).
-            _expert_1 = new ExpertTunerView("Tuner 1", _expert_panel);
+            _expert_1 = new ExpertTunerView(TunerLabel(0), _expert_panel);
             if (ts_devices == 2)
-                _expert_2 = new ExpertTunerView("Tuner 2", _expert_panel);
+                _expert_2 = new ExpertTunerView(TunerLabel(1), _expert_panel);
 
             _switches_groupBox.BringToFront();
 
             // "Special" tab: Tuner 1, Tuner 2, then Minitiouner Properties
-            _frequency_1 = new FrequencyTunerView("Tuner 1", _frequency_panel);
+            _frequency_1 = new FrequencyTunerView(TunerLabel(0), _frequency_panel);
             _frequency_1.DefaultCorrectionPpm = _settings.DefaultFreqCorrectionPpm;
             _frequency_1.SetTrim(capture_range_khz[0], freq_correction_ppm[0], freq_offset_khz[0]);
             _frequency_1.TrimChanged += (capture, correction, offset) => ApplyTunerTrim(0, capture, correction, offset);
@@ -198,7 +193,7 @@ namespace opentuner.MediaSources.Minitiouner
 
             if (ts_devices == 2)
             {
-                _frequency_2 = new FrequencyTunerView("Tuner 2", _frequency_panel);
+                _frequency_2 = new FrequencyTunerView(TunerLabel(1), _frequency_panel);
                 _frequency_2.DefaultCorrectionPpm = _settings.DefaultFreqCorrectionPpm;
                 _frequency_2.SetTrim(capture_range_khz[1], freq_correction_ppm[1], freq_offset_khz[1]);
                 _frequency_2.TrimChanged += (capture, correction, offset) => ApplyTunerTrim(1, capture, correction, offset);
@@ -259,6 +254,15 @@ namespace opentuner.MediaSources.Minitiouner
                 properties_OnPropertyMenuSelect(commands[comboLnbB.SelectedIndex], new int[] { 0, 0 });
             };
             _switches_groupBox.Controls.Add(comboLnbB);
+
+            // a board that cannot switch the LNB voltage (E-Tiouner, setting LnbSupplyControl): the dropdowns stay off
+            if (!_settings.LnbSupplyControl)
+            {
+                comboLnbA.Enabled = false;
+                comboLnbB.Enabled = false;
+                labelLnbA.Enabled = false;
+                labelLnbB.Enabled = false;
+            }
 
             // 22kHz tone - independent per tuner (22K-A/22K-B = 22K_TX1/22K_TX2), stacked
             // directly under the matching LNB-A/LNB-B dropdown above.
@@ -347,13 +351,16 @@ namespace opentuner.MediaSources.Minitiouner
                 _switches_groupBox.Height = externTop + 60;
             }
 
-            _expert_panel.Controls.Add(_switches_groupBox);
+            // A board without the AUX chip (no EXTERN outputs) that cannot switch the LNB voltage either (E-Tiouner) has
+            // nothing to show here: the whole block stays away.
+            if (AuxAvailable || _settings.LnbSupplyControl)
+                _expert_panel.Controls.Add(_switches_groupBox);
         }
 
 
         private DynamicPropertyGroup ConfigureTunerProperties(int tuner)
         {
-            DynamicPropertyGroup dynamicPropertyGroup = new DynamicPropertyGroup("Tuner " +  tuner.ToString(), _parent);
+            DynamicPropertyGroup dynamicPropertyGroup = new DynamicPropertyGroup("Tuner " + (tuner + TunerNumberOffset).ToString(), _parent);
             dynamicPropertyGroup.setID(tuner);
             dynamicPropertyGroup.OnSlidersChanged += DynamicPropertyGroup_OnSliderChanged;
             dynamicPropertyGroup.OnMediaButtonPressed += DynamicPropertyGroup_OnMediaButtonPressed;
@@ -740,12 +747,14 @@ namespace opentuner.MediaSources.Minitiouner
             double mer2 = Convert.ToDouble(new_status.T2P1_mer) / 10;
 
             // general
-            _source_properties.UpdateValue("source_chip_id", "MID 0x" + new_status.chip_mid.ToString("X2") + " (ident " + (new_status.chip_mid >> 4) +
-                                           ", release " + (new_status.chip_mid & 0x0F) + "), DID 0x" + new_status.chip_did.ToString("X2"));
+            // the chip ident in two lines: on one it did not fit in a narrow tab
+            _source_properties.UpdateValue("source_chip_id", "0x" + new_status.chip_mid.ToString("X2") + " (ident " + (new_status.chip_mid >> 4) + ", release " + (new_status.chip_mid & 0x0F) + ")");
+            _source_properties.UpdateValue("source_chip_did", "0x" + new_status.chip_did.ToString("X2"));
             _source_properties.UpdateValue("source_pll_status", new_status.pll_locked ? "PLLLOCK: locked" : "PLLLOCK: NOT LOCKED");
             _source_properties.UpdateColor("source_pll_status", new_status.pll_locked ? Color.LimeGreen : Color.Red);
 
             // Expert tab: gauges, lock LEDs and I/Q constellation per tuner
+            if (_expert_1 != null) _expert_1.MclkHz = new_status.mclk_hz;
             _expert_1?.Update(new_status.T1P2_demod_status, new_status.T1P2_input_power_level, mer, new_status.T1P2_dstatus,
                               new_status.T1P2_dstatus2, new_status.T1P2_ldi, new_status.T1P2_tmglock, new_status.T1P2_symbol_rate,
                               new_status.T1P2_constellation, new_status.T1P2_lock_time_ms,
@@ -758,6 +767,7 @@ namespace opentuner.MediaSources.Minitiouner
             _frequency_1?.Update(new_status.T1P2_demod_status, new_status.T1P2_frequency_carrier_offset,
                                  new_status.T1P2_carrier_low_hz, new_status.T1P2_carrier_up_hz, new_status.T1P2_symbol_rate,
                                  (double)current_frequency_0 + current_offset_0, current_frequency_0, new_status.T1P2_agc2_gain);
+            if (_expert_2 != null) _expert_2.MclkHz = new_status.mclk_hz;
             _expert_2?.Update(new_status.T2P1_demod_status, new_status.T2P1_input_power_level, mer2, new_status.T2P1_dstatus,
                               new_status.T2P1_dstatus2, new_status.T2P1_ldi, new_status.T2P1_tmglock, new_status.T2P1_symbol_rate,
                               new_status.T2P1_constellation, new_status.T2P1_lock_time_ms,
@@ -893,7 +903,7 @@ namespace opentuner.MediaSources.Minitiouner
 
             FillTsHealth(source_data, ts_parser_thread, ts_thread);
 
-            opentuner.Utilities.DiagnosticsHelper.MeasureSlow("Status update tuner 1 (OnSourceData)", 250, () => OnSourceData?.Invoke(0, source_data, "Tuner 1"));
+            opentuner.Utilities.DiagnosticsHelper.MeasureSlow("Status update tuner 1 (OnSourceData)", 250, () => OnSourceData?.Invoke(0, source_data, TunerLabel(0)));
 
             if (ts_devices == 2 && _tuner2_properties != null)
             {
@@ -1019,7 +1029,7 @@ namespace opentuner.MediaSources.Minitiouner
                         source_data_2.volume = _media_player[1].GetVolume();
                 }
 
-                opentuner.Utilities.DiagnosticsHelper.MeasureSlow("Status update tuner 2 (OnSourceData)", 250, () => OnSourceData?.Invoke(1, source_data_2, "Tuner 2"));
+                opentuner.Utilities.DiagnosticsHelper.MeasureSlow("Status update tuner 2 (OnSourceData)", 250, () => OnSourceData?.Invoke(1, source_data_2, TunerLabel(1)));
 
             }
         }

@@ -125,7 +125,7 @@ namespace opentuner.MediaSources.Minitiouner
 
             _settings.CaptureRangeKHz[device] = capture_range;
             _settings.FreqCorrectionPpm[device] = correction_ppm;
-            _settingsManager.SaveSettings(_settings);
+            SaveSettingsFiles();
 
             if (device == 0)
                 change_frequency(0, current_frequency_0, current_sr_0, current_rf_input_0, current_tone_22kHz_0, current_lnba_psu, current_lnbb_psu);
@@ -146,7 +146,7 @@ namespace opentuner.MediaSources.Minitiouner
             _settings.DefaultLnbBSupply = current_lnbb_psu;
             _settings.Tone22kHz[0] = current_tone_22kHz_0;
             _settings.Tone22kHz[1] = current_tone_22kHz_1;
-            _settingsManager.SaveSettings(_settings);
+            SaveSettingsFiles();
         }
 
         // tuner specific
@@ -200,6 +200,62 @@ namespace opentuner.MediaSources.Minitiouner
         public string HardwareDevice { get; set; }
 
         private SettingsManager<MinitiounerSettings> _settingsManager;
+
+        // Settings per board (#29): every board keeps its values in minitiouner_settings_<chip serial>.json. The general
+        // file minitiouner_settings.json stays (interface choice, PreferredBoardSerial, and the values of the board used
+        // last - a board that has no file yet starts from them).
+        private SettingsManager<MinitiounerSettings> _board_settings_manager;
+
+        // read once at startup from the general file and not taken from a board file
+        private static readonly string[] GeneralSettingFields = { "DefaultInterface", "PreferredBoardSerial" };
+
+        private void LoadBoardSettings(string chip_serial)
+        {
+            if (string.IsNullOrWhiteSpace(chip_serial))
+                return;
+
+            string safe_serial = new string(chip_serial.Where(c => char.IsLetterOrDigit(c)).ToArray());
+            if (safe_serial.Length == 0)
+                return;
+
+            string name = "minitiouner_settings_" + safe_serial;
+            string path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings", name + ".json");
+            bool existed = System.IO.File.Exists(path);
+
+            var manager = new SettingsManager<MinitiounerSettings>(name);
+            try
+            {
+                if (existed)
+                {
+                    var board_settings = manager.LoadSettings(new MinitiounerSettings());
+                    foreach (var field in typeof(MinitiounerSettings).GetFields())
+                    {
+                        if (Array.IndexOf(GeneralSettingFields, field.Name) >= 0)
+                            continue;
+                        field.SetValue(_settings, field.GetValue(board_settings));
+                    }
+                    Log.Information("Board settings: loaded " + name + ".json");
+                }
+                else
+                {
+                    // first use of this board: it takes over the values used so far
+                    manager.SaveSettings(_settings);
+                    Log.Information("Board settings: no file for board " + safe_serial + " yet, created " + name + ".json from the current settings");
+                }
+                _board_settings_manager = manager;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Board settings: " + name + ".json could not be used, keeping the general settings");
+            }
+        }
+
+        // the general file and the file of the board in use
+        private void SaveSettingsFiles()
+        {
+            _settingsManager.SaveSettings(_settings);
+            _board_settings_manager?.SaveSettings(_settings);
+        }
         private MinitiounerSettings _settings;
 
         public MinitiounerSource() 
@@ -500,6 +556,28 @@ namespace opentuner.MediaSources.Minitiouner
             return Initialize(VideoChangeCB, SourceStatusCB, false, "", "", "", Parent);
         }
 
+        // Several boards at once (#29): the number the first tuner of this board has in the whole source, minus 1
+        // (0 = tuner 1 for the first board, 2 = tuner 3 for a second board behind a Pro), only used for names.
+        public int TunerNumberOffset { get; set; } = 0;
+
+        private string TunerLabel(int local_tuner_index)
+        {
+            return "Tuner " + (TunerNumberOffset + local_tuner_index + 1).ToString();
+        }
+
+        // the board found for this source (null with the PicoTuner interface or before connecting)
+        public MiniTiounerBoard SelectedBoard => (hardware_interface as FTDIInterface)?.SelectedBoard;
+
+        public bool UseAllBoards => _settings.UseAllBoards;
+
+        // Connects to one given board (a chip serial number of it) instead of asking for the interface and choosing
+        // one: for the further boards of a source with several boards.
+        public int InitializeForBoard(string chip_serial, VideoChangeCallback VideoChangeCB, Control Parent)
+        {
+            hardware_interface = new FTDIInterface { PreferredBoardSerial = chip_serial ?? "" };
+            return Initialize(VideoChangeCB, SourceStatusCB, false, "", "", "", Parent);
+        }
+
         // Set when Close() starts: the NIM thread's status callbacks then return at once instead of marshalling
         // to the UI thread, and Close() only pumps messages while one of them is still running (issue #34).
         private volatile bool _closing = false;
@@ -534,7 +612,7 @@ namespace opentuner.MediaSources.Minitiouner
 
             if (T1P2_prevLocked != T1P2locked)
             {
-                Log.Information("T1P2 - Lock State Change: " + T1P2_prevLocked.ToString() + "->" + T1P2locked.ToString());
+                Log.Information("T1P2 (" + TunerLabel(0) + ") - Lock State Change: " + T1P2_prevLocked.ToString() + "->" + T1P2locked.ToString());
 
                 if (nim_status.T1P2_demod_status >= 2)
                 {
@@ -561,7 +639,7 @@ namespace opentuner.MediaSources.Minitiouner
             {
                 if (T2P1_prevLocked != T2P1Locked)
                 {
-                    Log.Information("T2P1 - Lock State Change: " + T2P1_prevLocked.ToString() + "->" + T2P1Locked.ToString());
+                    Log.Information("T2P1 (" + TunerLabel(1) + ") - Lock State Change: " + T2P1_prevLocked.ToString() + "->" + T2P1Locked.ToString());
 
                     if (nim_status.T2P1_demod_status >= 2)
                     {
@@ -656,6 +734,9 @@ namespace opentuner.MediaSources.Minitiouner
                 return -1;
             }
 
+            // the settings of the board that was found (before anything reads them)
+            LoadBoardSettings((hardware_interface as FTDIInterface)?.SelectedBoard?.ChipSerials.FirstOrDefault());
+
             // build properties
             _parent = Parent;
 
@@ -693,6 +774,8 @@ namespace opentuner.MediaSources.Minitiouner
                 _settings.EnableDigoleDisplay, _settings.DigoleI2cAddress, HardwareDevice,
                 new uint[] { _settings.Offset1, _settings.Offset2 }, _settings.DigoleCallsign,
                 _settings.DigoleLocator, _settings.DigoleName);
+            nim_thread.ApplyReceiverSettings(_settings);
+            nim_thread.TunerCount = ts_devices;
             nim_thread_t = new Thread(nim_thread.worker_thread);
             nim_thread_t.IsBackground = true;
 
@@ -1144,7 +1227,7 @@ namespace opentuner.MediaSources.Minitiouner
             _closing = true;
 
             // Every step is logged when it starts and when it ends, so a hang on exit shows where it stands (issue #34).
-            CloseStep("save settings", () => _settingsManager.SaveSettings(_settings));
+            CloseStep("save settings", () => SaveSettingsFiles());
 
             // Thread.Abort() doesn't exist on modern .NET (throws PlatformNotSupportedException,
             // which used to take the whole process down since these are foreground threads) -
@@ -1241,8 +1324,11 @@ namespace opentuner.MediaSources.Minitiouner
                 {
                     hardware_interface?.hw_ts_led(0, false);
                     hardware_interface?.hw_ts_led(1, false);
-                    hardware_interface?.hw_set_polarization_supply(0, false, false);
-                    hardware_interface?.hw_set_polarization_supply(1, false, false);
+                    if (_settings.LnbSupplyControl)
+                    {
+                        hardware_interface?.hw_set_polarization_supply(0, false, false);
+                        hardware_interface?.hw_set_polarization_supply(1, false, false);
+                    }
                 });
             }
             finally
@@ -1260,12 +1346,51 @@ namespace opentuner.MediaSources.Minitiouner
             CloseStep("switch off EXTERN outputs", () => hardware_interface?.aux_gpio_write(0));
         }
 
+        // for the settings dialog of a source with several boards: what to add to the title ("V2 - tuner 3") and how many
+        // tuners the board has (0 = as found after connecting, else 2)
+        public string SettingsTitleSuffix { get; set; } = "";
+        public int SettingsTunerCount { get; set; } = 0;
+
+        // The settings of one given board, e.g. of a further board before anything is connected (a chip serial of it).
+        public void ShowSettingsForBoard(string chip_serial)
+        {
+            LoadBoardSettings(chip_serial);
+            ShowSettingsDialog();
+        }
+
+        // the board that is chosen when several are connected, from the setting PreferredBoardSerial ("" = automatic)
+        public string PreferredBoardSerial => _settings.PreferredBoardSerial;
+
         public override void ShowSettings()
         {
-            MinitiounerSettingsForm settings_form = new MinitiounerSettingsForm(ref _settings);
-            if (settings_form.ShowDialog() == DialogResult.OK) 
+            // Not connected yet: the board is not known, so the values shown (and saved) would only reach the general file
+            // and the file of the board would overwrite them at the next connect. Find the board the same way the connect
+            // does (from the USB device list, nothing is opened) and work on its settings.
+            if (_board_settings_manager == null && !hardware_connected)
             {
-                _settingsManager.SaveSettings(_settings);
+                try
+                {
+                    var devices = HardwareInfo.EnumerateFtdiDevices(out string list_error);
+                    var boards = BoardDetection.Detect(devices, new List<string>());
+                    var board = BoardDetection.Select(boards, _settings.PreferredBoardSerial);
+                    LoadBoardSettings(board?.ChipSerials.FirstOrDefault());
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Board settings: could not find the board before connecting, using the general settings");
+                }
+            }
+
+            ShowSettingsDialog();
+        }
+
+        private void ShowSettingsDialog()
+        {
+            int tuner_count = SettingsTunerCount > 0 ? SettingsTunerCount : (hardware_connected ? ts_devices : 2);
+            MinitiounerSettingsForm settings_form = new MinitiounerSettingsForm(ref _settings, SettingsTitleSuffix, TunerNumberOffset, tuner_count);
+            if (settings_form.ShowDialog() == DialogResult.OK)
+            {
+                SaveSettingsFiles();
                 // Digole text can be applied live; other settings (interface, offsets, LNB defaults,
                 // Digole enable/address) are read on connect and need a reconnect.
                 nim_thread?.UpdateDigoleIdentity(_settings.DigoleCallsign, _settings.DigoleLocator, _settings.DigoleName); 

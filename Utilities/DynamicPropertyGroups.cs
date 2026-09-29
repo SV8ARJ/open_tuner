@@ -131,6 +131,22 @@ namespace opentuner.Utilities
             UpdateTitle(_groupBox, Title);
         }
 
+        // The title column is only as wide as the longest title of the plain items (plus a little), not half of the group:
+        // the values start closer to their titles and long values get more room. Call after adding the items.
+        public void UseCompactTitles()
+        {
+            var items = _items.OfType<DynamicPropertyItem>().ToList();
+            if (items.Count == 0)
+                return;
+
+            int widest = 0;
+            foreach (var item in items)
+                widest = Math.Max(widest, TextRenderer.MeasureText(item.TitleText, _groupBox.Font).Width);
+
+            foreach (var item in items)
+                item.SetCompactTitleWidth(widest + 4);
+        }
+
         public void AddItem(string Key, string Name)
         {
             _items.Add(new DynamicPropertyItem(_groupBox, Key, Name));

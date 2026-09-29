@@ -165,6 +165,16 @@ namespace opentuner.MediaSources.Minitiouner
             ldpc_row.Controls.Add(_ldpc_errors_bar, 1, 0);
             tips.SetToolTip(_noise_bar, "Noise amplitude relative to the signal amplitude (lower is better): NNOSPLHT (measured on PLHeader and pilots) in DVB-S2, NNOSDATAT (measured on the data) in DVB-S; 0x4000 = 100 % = noise as strong as the signal. Trace of the last ~30 s, the vertical scale follows its minimum and maximum (shown in brackets). The chip filters this value heavily, so it moves slowly");
             ldpc_row.Controls.Add(_noise_bar, 2, 0);
+
+            // A bar that is too narrow for title and value puts the value on a second line and needs more height: the
+            // row follows the highest of the three, everything below it moves down and the group grows with it.
+            Action fit_ldpc_row = () =>
+                ldpc_row.Height = Math.Max(_ldpc_bar.PreferredHeight, Math.Max(_ldpc_errors_bar.PreferredHeight, _noise_bar.PreferredHeight));
+            _ldpc_bar.PreferredHeightChanged += (s, e) => fit_ldpc_row();
+            _ldpc_errors_bar.PreferredHeightChanged += (s, e) => fit_ldpc_row();
+            _noise_bar.PreferredHeightChanged += (s, e) => fit_ldpc_row();
+            ldpc_row.SizeChanged += (s, e) => FitHeight();
+
             _group.Controls.Add(ldpc_row);
 
             // Lock Time (left) and Refresh Time of the status polling (right, the same for both tuners) share one row
@@ -254,6 +264,9 @@ namespace opentuner.MediaSources.Minitiouner
         // (signed), tmglock: timing lock indicator accumulator (16 bit). constellation: 16 (I, Q) samples
         // or null. lock_time_ms: software-measured time to lock, -1 = not locked yet. cn_needed_db: C/N the
         // received MODCOD needs (NaN = unknown).
+        // master clock of the demodulator this view belongs to (from the status), for the TS bit rate
+        public uint MclkHz { get; set; } = 135000000;
+
         public void Update(byte demod_status, short rf_dbm, double mer_db, byte dstatus, byte dstatus2, sbyte ldi, ushort tmglock,
                            uint symbol_rate, byte[,] constellation, double lock_time_ms, double cn_needed_db,
                            byte ldpc_iterations, byte ldpc_max_iterations, uint viterbi_error_rate,
@@ -299,7 +312,7 @@ namespace opentuner.MediaSources.Minitiouner
                 _ts_bitrate_avg = double.NaN;
             SetText(_ts_bitrate_label, double.IsNaN(_ts_bitrate_avg)
                 ? "TS Bitrate:  -"
-                : "TS Bitrate:  " + (_ts_bitrate_avg * (stv0910.MclkHz / 1e6) / 16384.0).ToString("N3") + " Mb/s");
+                : "TS Bitrate:  " + (_ts_bitrate_avg * (MclkHz / 1e6) / 16384.0).ToString("N3") + " Mb/s");
             SetText(_refresh_label, "Refresh Time:  " + refresh_ms + " ms");
 
             // VERROR: error rate seen by the Viterbi decoder, DVB-S (not S2) only. viterbi_error_rate is in 1/100 %.

@@ -183,6 +183,14 @@ namespace opentuner.MediaSources.Minitiouner
             rates.Dock = DockStyle.Top;
             rates.Height = 34;
             rates.Padding = new Padding(0, 2, 0, 0);
+
+            // In a narrow tab the buttons no longer fit in one line: the row wraps into a second one (2k / 1k5 were cut
+            // off) and grows, everything below it (the derotator ...) moves down, and the group gets the extra height.
+            rates.WrapContents = true;
+            rates.AutoSize = true;
+            rates.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            rates.MinimumSize = new Size(0, 34);
+            rates.SizeChanged += (s, e) => _group.Height = 600 + Math.Max(0, rates.Height - 34);
             var rate_label = new Label { Text = "SR (kS):", AutoSize = false, Width = 56, Height = 26, TextAlign = ContentAlignment.MiddleLeft };
             rates.Controls.Add(rate_label);
             var rate_tips = new ToolTip { ShowAlways = true };

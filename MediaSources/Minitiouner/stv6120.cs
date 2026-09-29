@@ -67,7 +67,7 @@ namespace opentuner
         }
 
         // STV6120 CTRL2.BBGAIN code (0 = 0 dB, 1 = 2 dB ... 8 = 16 dB), set from the settings before the tuners are initialised
-        public static byte BasebandGainCode = stv6120_regs.STV6120_CTRL2_BBGAIN_6DB;
+        public byte BasebandGainCode = stv6120_regs.STV6120_CTRL2_BBGAIN_6DB;
 
         public byte stv6120_read_rf_sel(ref byte rfsel)
         {
