@@ -1079,10 +1079,17 @@ namespace opentuner
         // do this too, so an accidental click in the picture hid it for good (issue #19).
         private void video_player_MouseClick(object sender, MouseEventArgs e)
         {
-            if (e.Button != MouseButtons.Right)
+            if (e.Button != MouseButtons.Right && e.Button != MouseButtons.Middle)
                 return;
 
             int video_nr = (int)((Control)sender).Tag;
+
+            // the wheel click always switches the info line at once, whatever the number of streams
+            if (e.Button == MouseButtons.Middle)
+            {
+                ToggleInfoLine(video_nr);
+                return;
+            }
 
             // With three or more streams a menu offers the large view of this stream, next to the info line.
             // (In full screen, or with fewer streams, the right click still switches the info line at once.)
@@ -1096,7 +1103,7 @@ namespace opentuner
                 if (_large_video >= 0)
                     menu.Items.Add("Show all streams (grid)", null, (s, ev) => ShowVideoGrid());
                 menu.Items.Add(new ToolStripSeparator());
-                menu.Items.Add(InfoLineVisible(video_nr) ? "Hide info line" : "Show info line", null, (s, ev) => ToggleInfoLine(video_nr));
+                menu.Items.Add(InfoLineVisible(video_nr) ? "Hide info line (wheel click)" : "Show info line (wheel click)", null, (s, ev) => ToggleInfoLine(video_nr));
                 menu.Closed += (s, ev) => BeginInvoke(new MethodInvoker(menu.Dispose));
                 menu.Show(Cursor.Position);
                 return;
