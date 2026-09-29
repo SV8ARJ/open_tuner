@@ -352,7 +352,7 @@ namespace opentuner
             checkDATVReporter.Checked = _settings.enable_datvreporter_checkbox;
 
             // load available sources
-            _availableSources.Add(new MinitiounerSource());
+            _availableSources.Add(new MinitiounerMultiSource());
             _availableSources.Add(new LongmyndSource());
             _availableSources.Add(new WinterHillSource());
 

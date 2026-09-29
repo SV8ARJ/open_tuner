@@ -556,6 +556,28 @@ namespace opentuner.MediaSources.Minitiouner
             return Initialize(VideoChangeCB, SourceStatusCB, false, "", "", "", Parent);
         }
 
+        // Several boards at once (#29): the number the first tuner of this board has in the whole source, minus 1
+        // (0 = tuner 1 for the first board, 2 = tuner 3 for a second board behind a Pro), only used for names.
+        public int TunerNumberOffset { get; set; } = 0;
+
+        private string TunerLabel(int local_tuner_index)
+        {
+            return "Tuner " + (TunerNumberOffset + local_tuner_index + 1).ToString();
+        }
+
+        // the board found for this source (null with the PicoTuner interface or before connecting)
+        public MiniTiounerBoard SelectedBoard => (hardware_interface as FTDIInterface)?.SelectedBoard;
+
+        public bool UseAllBoards => _settings.UseAllBoards;
+
+        // Connects to one given board (a chip serial number of it) instead of asking for the interface and choosing
+        // one: for the further boards of a source with several boards.
+        public int InitializeForBoard(string chip_serial, VideoChangeCallback VideoChangeCB, Control Parent)
+        {
+            hardware_interface = new FTDIInterface { PreferredBoardSerial = chip_serial ?? "" };
+            return Initialize(VideoChangeCB, SourceStatusCB, false, "", "", "", Parent);
+        }
+
         // Set when Close() starts: the NIM thread's status callbacks then return at once instead of marshalling
         // to the UI thread, and Close() only pumps messages while one of them is still running (issue #34).
         private volatile bool _closing = false;
@@ -590,7 +612,7 @@ namespace opentuner.MediaSources.Minitiouner
 
             if (T1P2_prevLocked != T1P2locked)
             {
-                Log.Information("T1P2 - Lock State Change: " + T1P2_prevLocked.ToString() + "->" + T1P2locked.ToString());
+                Log.Information("T1P2 (" + TunerLabel(0) + ") - Lock State Change: " + T1P2_prevLocked.ToString() + "->" + T1P2locked.ToString());
 
                 if (nim_status.T1P2_demod_status >= 2)
                 {
@@ -617,7 +639,7 @@ namespace opentuner.MediaSources.Minitiouner
             {
                 if (T2P1_prevLocked != T2P1Locked)
                 {
-                    Log.Information("T2P1 - Lock State Change: " + T2P1_prevLocked.ToString() + "->" + T2P1Locked.ToString());
+                    Log.Information("T2P1 (" + TunerLabel(1) + ") - Lock State Change: " + T2P1_prevLocked.ToString() + "->" + T2P1Locked.ToString());
 
                     if (nim_status.T2P1_demod_status >= 2)
                     {
@@ -753,6 +775,7 @@ namespace opentuner.MediaSources.Minitiouner
                 new uint[] { _settings.Offset1, _settings.Offset2 }, _settings.DigoleCallsign,
                 _settings.DigoleLocator, _settings.DigoleName);
             nim_thread.ApplyReceiverSettings(_settings);
+            nim_thread.TunerCount = ts_devices;
             nim_thread_t = new Thread(nim_thread.worker_thread);
             nim_thread_t.IsBackground = true;
 
@@ -1301,8 +1324,11 @@ namespace opentuner.MediaSources.Minitiouner
                 {
                     hardware_interface?.hw_ts_led(0, false);
                     hardware_interface?.hw_ts_led(1, false);
-                    hardware_interface?.hw_set_polarization_supply(0, false, false);
-                    hardware_interface?.hw_set_polarization_supply(1, false, false);
+                    if (_settings.LnbSupplyControl)
+                    {
+                        hardware_interface?.hw_set_polarization_supply(0, false, false);
+                        hardware_interface?.hw_set_polarization_supply(1, false, false);
+                    }
                 });
             }
             finally
@@ -1319,6 +1345,21 @@ namespace opentuner.MediaSources.Minitiouner
             // OpenTuner closes.
             CloseStep("switch off EXTERN outputs", () => hardware_interface?.aux_gpio_write(0));
         }
+
+        // for the settings dialog of a source with several boards: what to add to the title ("V2 - tuner 3") and how many
+        // tuners the board has (0 = as found after connecting, else 2)
+        public string SettingsTitleSuffix { get; set; } = "";
+        public int SettingsTunerCount { get; set; } = 0;
+
+        // The settings of one given board, e.g. of a further board before anything is connected (a chip serial of it).
+        public void ShowSettingsForBoard(string chip_serial)
+        {
+            LoadBoardSettings(chip_serial);
+            ShowSettingsDialog();
+        }
+
+        // the board that is chosen when several are connected, from the setting PreferredBoardSerial ("" = automatic)
+        public string PreferredBoardSerial => _settings.PreferredBoardSerial;
 
         public override void ShowSettings()
         {
@@ -1340,8 +1381,14 @@ namespace opentuner.MediaSources.Minitiouner
                 }
             }
 
-            MinitiounerSettingsForm settings_form = new MinitiounerSettingsForm(ref _settings);
-            if (settings_form.ShowDialog() == DialogResult.OK) 
+            ShowSettingsDialog();
+        }
+
+        private void ShowSettingsDialog()
+        {
+            int tuner_count = SettingsTunerCount > 0 ? SettingsTunerCount : (hardware_connected ? ts_devices : 2);
+            MinitiounerSettingsForm settings_form = new MinitiounerSettingsForm(ref _settings, SettingsTitleSuffix, TunerNumberOffset, tuner_count);
+            if (settings_form.ShowDialog() == DialogResult.OK)
             {
                 SaveSettingsFiles();
                 // Digole text can be applied live; other settings (interface, offsets, LNB defaults,

@@ -140,8 +140,15 @@ namespace opentuner
 
         // The receiver settings of this board (low symbol rate profile, carrier algorithm, baseband gain ...) go to its own
         // demodulator/tuner object; call before the thread is started (they were static before, shared by all boards).
+        // false: the LNB supply pins of this board are never touched (see MinitiounerSettings.LnbSupplyControl)
+        public bool LnbSupplyControl { get; set; } = true;
+
+        // number of tuners in use on this board: 2 for a Pro, 1 for a board with a single TS (V2, E-Tiouner)
+        public int TunerCount { get; set; } = 2;
+
         public void ApplyReceiverSettings(MinitiounerSettings s)
         {
+            LnbSupplyControl = s.LnbSupplyControl;
             _stv0910.AllowLowSrClock = s.LowSrClock;
             _stv0910.LowSrProfile = s.LowSrProfile;
             _stv0910.MiniTiouneInit = s.MiniTiouneInit;
@@ -194,7 +201,11 @@ namespace opentuner
             // instead: it stays up through that meaningless placeholder tune (which won't lock
             // onto anything real) and only switches to status once a real signal is received.
             bool t1_locked = status.T1P2_demod_status == stv0910.DEMOD_S || status.T1P2_demod_status == stv0910.DEMOD_S2;
-            bool t2_locked = status.T2P1_demod_status == stv0910.DEMOD_S || status.T2P1_demod_status == stv0910.DEMOD_S2;
+
+            // A board with a single TS (V2, E-Tiouner) has only tuner A in use; its second demodulator still runs on the
+            // placeholder tune (the beacon) and must not take part in what the display shows (it made the display switch
+            // between A and B).
+            bool t2_locked = TunerCount > 1 && (status.T2P1_demod_status == stv0910.DEMOD_S || status.T2P1_demod_status == stv0910.DEMOD_S2);
 
             if (!t1_locked && !t2_locked)
             {
@@ -891,30 +902,34 @@ namespace opentuner
 
                             lock (HwLock)
                             {
-                                switch(nim_config.lnba_psu)
+                                // a board that cannot switch the LNB voltage (E-Tiouner) is left alone
+                                if (LnbSupplyControl)
                                 {
-                                    case 0:
-                                        hardware.hw_set_polarization_supply(0, false, false);
-                                        break;
-                                    case 1:
-                                        hardware.hw_set_polarization_supply(0, true, false);
-                                        break;
-                                    case 2:
-                                        hardware.hw_set_polarization_supply(0, true, true);
-                                        break;
-                                }
+                                    switch(nim_config.lnba_psu)
+                                    {
+                                        case 0:
+                                            hardware.hw_set_polarization_supply(0, false, false);
+                                            break;
+                                        case 1:
+                                            hardware.hw_set_polarization_supply(0, true, false);
+                                            break;
+                                        case 2:
+                                            hardware.hw_set_polarization_supply(0, true, true);
+                                            break;
+                                    }
 
-                                switch (nim_config.lnbb_psu)
-                                {
-                                    case 0:
-                                        hardware.hw_set_polarization_supply(1, false, false);
-                                        break;
-                                    case 1:
-                                        hardware.hw_set_polarization_supply(1, true, false);
-                                        break;
-                                    case 2:
-                                        hardware.hw_set_polarization_supply(1, true, true);
-                                        break;
+                                    switch (nim_config.lnbb_psu)
+                                    {
+                                        case 0:
+                                            hardware.hw_set_polarization_supply(1, false, false);
+                                            break;
+                                        case 1:
+                                            hardware.hw_set_polarization_supply(1, true, false);
+                                            break;
+                                        case 2:
+                                            hardware.hw_set_polarization_supply(1, true, true);
+                                            break;
+                                    }
                                 }
 
 
