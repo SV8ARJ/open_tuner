@@ -18,6 +18,7 @@ namespace opentuner.MediaSources.Minitiouner
         private readonly MTHardwareInterface hw;
         private readonly byte i2c_address;
         private string last_rendered = null;
+        private string[] last_lines = null;    // the lines on the screen after the last successful draw (null = unknown)
 
         public DigoleDisplay(MTHardwareInterface hardware, byte i2cAddress)
         {
@@ -34,8 +35,27 @@ namespace opentuner.MediaSources.Minitiouner
         // service_name: decoded TS service name (SDT), truncated to 14 chars - matches the
         // "TSStatus.ServiceName"/"last_service_name_0/1" fields in MinitiounerSource
         // video_codec / modcod_name: e.g. "h264" / "8PSK 3/4" - combined into one "Inf:" line
+        // Every redraw clears the screen, so it flickers. MER and the RF level jitter all the time; a small change of them
+        // alone is not drawn (the shown value is kept), only a change beyond these limits, of another value, or after
+        // the maximum age.
+        private const double MerHysteresisDb = 0.3;
+        private const short RfHysteresisDbm = 2;
+        private static readonly TimeSpan MaxValueAge = TimeSpan.FromSeconds(5);
+        private double _drawn_mer = double.NaN;
+        private short _drawn_rf;
+        private DateTime _drawn_at = DateTime.MinValue;
+
         public void UpdateStatus(string device_name, string tuner_label, long frequency_kHz, uint symbol_rate_kS, short rf_level_dBm, double mer_dB, string service_name, string video_codec, string modcod_name)
         {
+            if (!double.IsNaN(_drawn_mer)
+                && Math.Abs(mer_dB - _drawn_mer) < MerHysteresisDb
+                && Math.Abs(rf_level_dBm - _drawn_rf) < RfHysteresisDbm
+                && DateTime.UtcNow - _drawn_at < MaxValueAge)
+            {
+                mer_dB = _drawn_mer;
+                rf_level_dBm = _drawn_rf;
+            }
+
             double frequency_MHz = frequency_kHz / 1000.0;
 
             string service_short = service_name ?? "";
@@ -65,27 +85,47 @@ namespace opentuner.MediaSources.Minitiouner
                 return;
 
             last_rendered = rendered;
+            _drawn_mer = mer_dB;
+            _drawn_rf = rf_level_dBm;
+            _drawn_at = DateTime.UtcNow;
 
             var cmd = new System.Collections.Generic.List<byte>();
 
-            // Exactly as in commit 550fa07: CL (which resets the font to 0 - see Digole docs) followed
-            // by the lines in the SAME transaction, no font selection and no pauses. Later attempts
-            // (SC/SF 10, ETP pixel positions, CL in its own write + pauses) did not change the font
-            // size on the real display and only made the screen flicker.
-            cmd.AddRange(Encoding.ASCII.GetBytes("CL")); // clear screen
+            // The first draw (and the first after a greeting or a clear) is exactly as in commit 550fa07: CL (which
+            // resets the font to 0 - see Digole docs) followed by the lines in the SAME transaction, no font selection
+            // and no pauses. Later attempts (SC/SF 10, ETP pixel positions, CL in its own write + pauses) did not change
+            // the font size on the real display and only made the screen flicker.
+            //
+            // After that only the lines that changed are written again, padded with spaces up to the old length so no
+            // rest of the old text stays: a new MER value must not clear and redraw the whole screen (flicker).
+            bool full = last_lines == null || last_lines.Length != lines.Length;
+            if (full)
+                cmd.AddRange(Encoding.ASCII.GetBytes("CL")); // clear screen
 
             for (byte row = 0; row < lines.Length; row++)
             {
+                if (!full && lines[row] == last_lines[row])
+                    continue;
+
+                string text = lines[row];
+                if (!full && last_lines[row].Length > text.Length)
+                    text = text.PadRight(last_lines[row].Length);
+
                 cmd.AddRange(Encoding.ASCII.GetBytes("TP"));
                 cmd.Add(0);   // column
                 cmd.Add(row); // row
 
                 cmd.AddRange(Encoding.ASCII.GetBytes("TT"));
-                cmd.AddRange(Encoding.ASCII.GetBytes(lines[row]));
+                cmd.AddRange(Encoding.ASCII.GetBytes(text));
                 cmd.Add(0); // null terminator, per Digole's "TT" command
             }
 
-            hw.i2c_write_raw(i2c_address, cmd.ToArray());
+            byte err = hw.i2c_write_raw(i2c_address, cmd.ToArray());
+
+            // a failed write leaves the screen in an unknown state: draw everything again next time
+            last_lines = err == 0 ? lines : null;
+            if (err != 0)
+                last_rendered = null;
         }
 
         // Clears the display - call on shutdown so a stale reading isn't left on screen
@@ -95,6 +135,8 @@ namespace opentuner.MediaSources.Minitiouner
         public byte Clear()
         {
             last_rendered = null;
+            last_lines = null;
+            _drawn_mer = double.NaN;
             return hw.i2c_write_raw(i2c_address, Encoding.ASCII.GetBytes("CL"));
         }
 
@@ -120,6 +162,8 @@ namespace opentuner.MediaSources.Minitiouner
         public byte ShowGreeting(string device_name, string callsign, string locator, string name, string phase = "")
         {
             last_rendered = null;
+            last_lines = null;
+            _drawn_mer = double.NaN;
 
             var cmd = new System.Collections.Generic.List<byte>();
             cmd.AddRange(Encoding.ASCII.GetBytes("CL"));
