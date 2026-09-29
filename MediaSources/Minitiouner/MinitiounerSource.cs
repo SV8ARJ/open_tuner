@@ -23,6 +23,10 @@ namespace opentuner.MediaSources.Minitiouner
 
         public int ts_devices = 1;
 
+        // for the "Hardware Info" window
+        private TunerStatus _last_status;
+        private string _detected_ports = "";
+
         ConcurrentQueue<TunerConfig> config_queue = new ConcurrentQueue<TunerConfig>();
 
         public CircularBuffer ts_data_queue = new CircularBuffer(GlobalDefines.CircularBufferStartingCapacity);
@@ -495,6 +499,8 @@ namespace opentuner.MediaSources.Minitiouner
 
         public void nim_status_feedback(TunerStatus nim_status)
         {
+            _last_status = nim_status;
+
             bool T1P2locked = false;
             bool T2P1Locked = false;
 
@@ -909,6 +915,9 @@ namespace opentuner.MediaSources.Minitiouner
 
             HardwareDevice = deviceName;
 
+            Func<uint, string> port_text = p => p == 99 ? "-" : p.ToString();
+            _detected_ports = "I2C " + port_text(i2c_port) + ", TS " + port_text(ts_port) + ", TS2 " + port_text(ts_port2) + ", AUX " + port_text(aux_port);
+
             if (AuxAvailable)
             {
                 byte externValue = 0;
@@ -972,6 +981,42 @@ namespace opentuner.MediaSources.Minitiouner
         public override string GetName()
         {
             return "Minitiouner Variant";
+        }
+
+        // What is already known after connect; no extra I2C access (the NIM thread owns the bus).
+        public override List<KeyValuePair<string, string>> GetHardwareInfo()
+        {
+            var info = new List<KeyValuePair<string, string>>();
+            info.Add(new KeyValuePair<string, string>("Source", GetName()));
+
+            if (!hardware_connected || hardware_interface == null)
+            {
+                info.Add(new KeyValuePair<string, string>("Hardware", "not connected"));
+                return info;
+            }
+
+            info.Add(new KeyValuePair<string, string>("Hardware interface", hardware_interface.GetName));
+            info.Add(new KeyValuePair<string, string>("Board", HardwareDevice ?? "unknown"));
+            info.Add(new KeyValuePair<string, string>("TS streams", ts_devices.ToString()));
+            info.Add(new KeyValuePair<string, string>("Used FTDI devices (index)", _detected_ports));
+            info.Add(new KeyValuePair<string, string>("AUX chip (EXTERN outputs)", AuxAvailable ? "open" : "not available"));
+
+            var status = _last_status;
+            if (status == null)
+            {
+                info.Add(new KeyValuePair<string, string>("Demodulator", "no status received yet"));
+            }
+            else
+            {
+                info.Add(new KeyValuePair<string, string>("STV0910",
+                    "MID 0x" + status.chip_mid.ToString("X2") + " (ident " + (status.chip_mid >> 4) + ", release " + (status.chip_mid & 0x0F) + "), DID 0x" + status.chip_did.ToString("X2")));
+                info.Add(new KeyValuePair<string, string>("STV0910 PLL", status.pll_locked ? "locked" : "not locked"));
+                info.Add(new KeyValuePair<string, string>("LNA input 1", status.lna_top_ok ? "found" : "not present"));
+                info.Add(new KeyValuePair<string, string>("LNA input 2", status.lna_bottom_ok ? "found" : "not present"));
+                info.Add(new KeyValuePair<string, string>("Status refresh", status.refresh_ms + " ms"));
+            }
+
+            return info;
         }
 
         public override void OverrideDefaultMuted(bool Override)

@@ -816,6 +816,15 @@ namespace opentuner
             source.ShowSettings();
         }
 
+        private void hardwareInfoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // FTDI devices as the USB driver lists them, plus what the connected source knows (none before connect)
+            using (var info = new HardwareOverviewForm((source_connected && videoSource != null) ? videoSource : null))
+            {
+                info.ShowDialog(this);
+            }
+        }
+
         private void qO100WidebandChatToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (batc_chat != null)

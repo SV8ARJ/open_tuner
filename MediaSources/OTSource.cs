@@ -22,6 +22,9 @@ namespace opentuner.MediaSources
         // Request Device Name (eg. FTDI, Picotuner, etc)
         public abstract string GetDeviceName();
 
+        // Hardware details for the "Hardware Info" window (label / value), null if the source has none.
+        public virtual List<KeyValuePair<string, string>> GetHardwareInfo() { return null; }
+
         // Request Source Description (can also include some info regarding its current settings)
         public abstract string GetDescription();
 

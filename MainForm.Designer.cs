@@ -83,6 +83,7 @@
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.settingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.sourceSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.hardwareInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuManageFrequencyPresets = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.quitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -558,6 +559,7 @@
             this.toolStripSeparator3,
             this.settingsToolStripMenuItem,
             this.sourceSettingsToolStripMenuItem,
+            this.hardwareInfoToolStripMenuItem,
             this.menuManageFrequencyPresets,
             this.toolStripSeparator1,
             this.quitToolStripMenuItem});
@@ -587,6 +589,13 @@
             this.sourceSettingsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.sourceSettingsToolStripMenuItem.Text = "Source Settings";
             this.sourceSettingsToolStripMenuItem.Click += new System.EventHandler(this.sourceSettingsToolStripMenuItem_Click);
+            //
+            // hardwareInfoToolStripMenuItem
+            //
+            this.hardwareInfoToolStripMenuItem.Name = "hardwareInfoToolStripMenuItem";
+            this.hardwareInfoToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.hardwareInfoToolStripMenuItem.Text = "Hardware Info...";
+            this.hardwareInfoToolStripMenuItem.Click += new System.EventHandler(this.hardwareInfoToolStripMenuItem_Click);
             // 
             // menuManageFrequencyPresets
             // 
@@ -715,6 +724,7 @@
         private System.Windows.Forms.ToolStripMenuItem openTunerToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem settingsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem sourceSettingsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem hardwareInfoToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem quitToolStripMenuItem;
         private System.Windows.Forms.TabControl tabControl1;
         private System.Windows.Forms.TabPage debugPage;
