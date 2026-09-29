@@ -67,6 +67,8 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
 
         int connect_retries = 5;
         int connect_retry_count = 0;
+        int slow_retry_seconds = 15;
+        DateTime last_slow_retry = DateTime.MinValue;
 
         public void updateSignalCallsign(string callsign, double freq, float sr)
         {
@@ -141,16 +143,19 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
         private void draw_disconnect()
         {
             tmp.Clear(Color.Black);
-            tmp.DrawString("FFT Service Disconnected", new Font("Tahoma", 10), Brushes.Red, new PointF(10, 10));
+            tmp.DrawString("Spectrum server not reachable (eshail.batc.org.uk)", new Font("Tahoma", 10), Brushes.Red, new PointF(10, 10));
 
+            string retry_text;
             if (connect_retry_count < connect_retries)
-            {
-                tmp.DrawString("Retrying ...." + connect_retry_count.ToString() + "/" + connect_retries.ToString(), new Font("Tahoma", 10), Brushes.Red, new PointF(10, 30));
-            }
+                retry_text = "Retrying ...." + connect_retry_count.ToString() + "/" + connect_retries.ToString();
             else
-            {
-                tmp.DrawString("", new Font("Tahoma", 10), Brushes.Red, new PointF(10, 30));
-            }
+                retry_text = "Trying again every " + (slow_retry_seconds).ToString() + " s";
+
+            tmp.DrawString(retry_text, new Font("Tahoma", 10), Brushes.Red, new PointF(10, 30));
+            tmp.DrawString("Manual tuning: right click on the bandplan bars below", new Font("Tahoma", 10), Brushes.Gray, new PointF(10, 50));
+
+            // keep the bandplan visible and clickable without spectrum data
+            tmp.DrawImage(bmp2, 0, 255 - bandplan_height);
             UpdateDrawing();
         }
 
@@ -190,7 +195,7 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
 
                 TimeSpan t = DateTime.Now - web_socket.lastdata;
 
-                if (t.Seconds > 2)
+                if (t.TotalSeconds > 2)
                 {
                     web_socket.stop();
                 }
@@ -198,11 +203,19 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                 if (!web_socket.connected)
                 {
                     draw_disconnect();
-                    connect_retry_count += 1;
 
+                    // first retries every tick, afterwards slowly but without giving up - the server
+                    // was once down for days and the spectrum never came back without a restart
                     if (connect_retry_count < connect_retries)
                     {
+                        connect_retry_count += 1;
                         debug("Websocket Not Connected: Retrying " + connect_retry_count.ToString() + "/" + connect_retries.ToString());
+                        web_socket.start();
+                    }
+                    else if ((DateTime.Now - last_slow_retry).TotalSeconds >= slow_retry_seconds)
+                    {
+                        last_slow_retry = DateTime.Now;
+                        debug("Websocket Not Connected: Retrying (every " + slow_retry_seconds.ToString() + " s)");
                         web_socket.start();
                     }
                 }
@@ -474,19 +487,10 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
 
             if (me.Button == MouseButtons.Right)
             {
-                int freq = Convert.ToInt32((10490.5 + ((X / spectrum_wScale) / 922.0) * 9.0) * 1000.0);
-                //UpdateTextBox(txtFreq, freq.ToString());
-
-                string tx_freq = get_bandplan_TX_freq(X, Y);
-                debug("TX-Freq: " + tx_freq + " MHz");
-                // dh3cs
-                if (!string.IsNullOrEmpty(tx_freq))
-                {
-                    //Clipboard.SetText((Convert.ToDecimal(tx_freq) * 1000).ToString());    //DATV Express in Hz
-                    Clipboard.SetText(tx_freq);                                             //DATV-Easy in MHz
-                    TX_Text = " TX: " + tx_freq;
-                }
-
+                // manual tuning: right click on a bandplan channel tunes to its frequency with the
+                // symbol rate of the bar (A 1000, B 333, C 125 kS, from bandplan.xml). Works without
+                // spectrum data, so it is also usable while the spectrum server is down.
+                tuneBandplanChannel(X, Y);
             }
             else
             {
@@ -555,38 +559,101 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
 
         }
 
-        // moved to separate function, to use by right click in spectrum,  dh3cs 
-        private string get_bandplan_TX_freq(int x, int y)  // returns TX-Freq in MHz from the rectangle in Bandplan
+        // index of the bandplan channel under the mouse, -1 if there is none
+        private int find_bandplan_channel(int x, int y)
         {
+            // the bandplan is drawn at a fixed place in the bitmap (see drawspectrum), not at the bottom of the
+            // PictureBox, which can be taller or smaller than the bitmap
+            int bandplan_top = height - bandplan_height;
+
+            if (channels == null || indexedbandplan == null || y <= bandplan_top)
+                return -1;
+
             int n = 0;
-            string tx_freq_MHz = "";
-            if (x > (_spectrum.Height - bandplan_height))
+            int found = -1;
+            foreach (Rectangle ch in channels)
             {
-                if (channels != null)
+                if (x >= ch.Location.X & x <= ch.Location.X + ch.Width)
                 {
-                    foreach (Rectangle ch in channels)
+                    if (y - bandplan_top >= ch.Location.Y - (ch.Height / 2) + 3 & y - bandplan_top <= ch.Location.Y + (ch.Height / 2) + 3)
                     {
-                        if (x >= ch.Location.X & x <= ch.Location.X + ch.Width)
-                        {
-                            if (y - (_spectrum.Height - bandplan_height) >= ch.Location.Y - (ch.Height / 2) + 3 & y - (_spectrum.Height - bandplan_height) <= ch.Location.Y + (ch.Height / 2) + 3)
-                            {
-                                tx_freq_MHz = indexedbandplan[n].Element("s-freq").Value;
-                                InfoText = " Dn: " + indexedbandplan[n].Element("x-freq").Value + "  SR: " + indexedbandplan[n].Element("name").Value + Environment.NewLine
-                                    + " Up: " + tx_freq_MHz;
-                            }
-                        }
-                        n++;
+                        found = n;
                     }
                 }
+                n++;
             }
-            else
+            return found;
+        }
+
+        // returns TX-Freq in MHz from the rectangle in Bandplan and updates the info text, dh3cs
+        private string get_bandplan_TX_freq(int x, int y)
+        {
+            string tx_freq_MHz = "";
+            int n = find_bandplan_channel(x, y);
+
+            if (n >= 0)
             {
-                if (InfoText != "")
-                {
-                    InfoText = "";
-                }
+                tx_freq_MHz = indexedbandplan[n].Element("s-freq").Value;
+                InfoText = " Dn: " + indexedbandplan[n].Element("x-freq").Value + "  SR: " + indexedbandplan[n].Element("name").Value + Environment.NewLine
+                    + " Up: " + tx_freq_MHz;
+            }
+            else if (InfoText != "")
+            {
+                InfoText = "";
             }
             return tx_freq_MHz;
+        }
+
+        // tune the bandplan channel under the mouse (frequency and symbol rate from bandplan.xml): directly with
+        // one tuner, otherwise the tuner is chosen from a small menu that only lists the available ones
+        private void tuneBandplanChannel(int x, int y)
+        {
+            int n = find_bandplan_channel(x, y);
+            if (n < 0)
+                return;
+
+            if (_tuners <= 1)
+            {
+                tuneBandplanChannelRx(n, 0);
+                return;
+            }
+
+            string name = indexedbandplan[n].Element("x-freq").Value + " MHz, " + indexedbandplan[n].Element("sr").Value + " kS";
+
+            var menu = new ContextMenuStrip();
+            menu.Items.Add(new ToolStripLabel(name));
+            menu.Items.Add(new ToolStripSeparator());
+            for (int rx = 0; rx < _tuners && rx < 4; rx++)
+            {
+                int selected_rx = rx;
+                menu.Items.Add("Tune RX" + (rx + 1).ToString(), null, (s, e) => tuneBandplanChannelRx(n, selected_rx));
+            }
+            menu.Closed += (s, e) => _spectrum.BeginInvoke(new MethodInvoker(menu.Dispose)); // after the item click ran
+            menu.Show(_spectrum, new Point(x, y));
+        }
+
+        private void tuneBandplanChannelRx(int n, int rx)
+        {
+            try
+            {
+                double freq_mhz = Convert.ToDouble(indexedbandplan[n].Element("x-freq").Value, CultureInfo.InvariantCulture);
+                double sr_ks = Convert.ToDouble(indexedbandplan[n].Element("sr").Value, CultureInfo.InvariantCulture);
+
+                uint freq = Convert.ToUInt32(freq_mhz * 1000.0);   // kHz
+                uint sr = Convert.ToUInt32(sr_ks);                  // kS, same units as selectSignal
+
+                debug("Bandplan tune - RX: " + rx.ToString() + " Freq: " + freq.ToString() + " SR: " + sr.ToString());
+
+                // grey block for the selected channel, same units as selectSignal (FFT bins)
+                rx_blocks[rx, 0] = Convert.ToInt16(((freq_mhz - start_freq) / 9.0) * 922.0);
+                rx_blocks[rx, 1] = Convert.ToInt16(sr_ks / 1000.0 / 9.0 * 922.0 * 1.35);
+
+                OnSignalSelected?.Invoke(rx, freq, sr);
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "BATC spectrum: bandplan tune failed");
+            }
         }
     }
 }
