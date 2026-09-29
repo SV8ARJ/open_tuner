@@ -113,7 +113,7 @@
             this.groupBox3.Size = new System.Drawing.Size(467, 330);
             this.groupBox3.TabIndex = 2;
             this.groupBox3.TabStop = false;
-            this.groupBox3.Text = "Media Player Settings";
+            this.groupBox3.Text = "Media Player Settings (takes effect after restart)";
             // 
             // btnBrowseFolder1
             // 
@@ -567,6 +567,7 @@
             this.groupBox2.Size = new System.Drawing.Size(417, 79);
             this.groupBox2.TabIndex = 9;
             this.groupBox2.TabStop = false;
+            this.groupBox2.Text = "Open Tuner Settings (takes effect after restart)";
             // 
             // checkBoxMuted
             // 

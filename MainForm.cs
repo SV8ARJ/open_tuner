@@ -624,6 +624,7 @@ namespace opentuner
             Log.Information("* Saving Settings");
 
             // save current windows properties
+            LeaveVideoFullScreen();
             _settings.gui_window_state = (int)this.WindowState;
             if (this.WindowState == FormWindowState.Minimized)
             {
@@ -861,6 +862,7 @@ namespace opentuner
                     vlc_video_player.Dock = DockStyle.Fill;
                     vlc_video_player.MouseClick += video_player_MouseClick;
                     vlc_video_player.MouseWheel += video_player_MouseWheel;
+                    vlc_video_player.MouseDoubleClick += video_player_MouseDoubleClick;
                     vlc_video_player.Tag = nr;
 
 
@@ -885,6 +887,8 @@ namespace opentuner
                     ffmpeg_video_player.Dock = DockStyle.Fill;
                     ffmpeg_video_player.MouseClick += video_player_MouseClick;
                     ffmpeg_video_player.MouseWheel += video_player_MouseWheel;
+                    ffmpeg_video_player.MouseDoubleClick += video_player_MouseDoubleClick;
+                    ffmpeg_video_player.ToggleFullScreenOnDoubleClick = false; // own full screen handling, see issue #22
                     ffmpeg_video_player.Tag = nr;
 
 
@@ -909,6 +913,7 @@ namespace opentuner
                     mpv_video_player.Dock = DockStyle.Fill;
                     mpv_video_player.MouseClick += video_player_MouseClick;
                     mpv_video_player.MouseWheel += video_player_MouseWheel;
+                    mpv_video_player.MouseDoubleClick += video_player_MouseDoubleClick;
                     mpv_video_player.Tag = nr;
 
 
@@ -937,6 +942,92 @@ namespace opentuner
                 info_display.Add(video_info_display);
 
             return player;
+        }
+
+        // Double click on the video shows only the video full screen: the video control is moved into a
+        // borderless form and put back into its panel afterwards. Done here instead of by Flyleaf, which
+        // restored the window a few pixels smaller on every exit (issue #22).
+        private Form _fullscreen_form;
+        private Control _fullscreen_video;
+        private Control _fullscreen_parent;
+        private int _fullscreen_index;
+        private Control _fullscreen_info; // the info line above the video, shown in full screen too
+        private int _fullscreen_info_index;
+
+        private void video_player_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+                return;
+
+            if (_fullscreen_form != null)
+            {
+                LeaveVideoFullScreen();
+                return;
+            }
+
+            Control video = (Control)sender;
+            if (video.Parent == null)
+                return;
+
+            _fullscreen_video = video;
+            _fullscreen_parent = video.Parent;
+            _fullscreen_index = _fullscreen_parent.Controls.GetChildIndex(video);
+
+            var form = new Form();
+            form.FormBorderStyle = FormBorderStyle.None;
+            form.BackColor = System.Drawing.Color.Black;
+            form.ShowInTaskbar = false;
+            form.KeyPreview = true;
+            form.StartPosition = FormStartPosition.Manual;
+            form.Bounds = Screen.FromControl(video).Bounds;
+            form.KeyDown += (s, ke) =>
+            {
+                if (ke.KeyCode == Keys.Escape)
+                    LeaveVideoFullScreen();
+            };
+            _fullscreen_form = form;
+
+            _fullscreen_info = null;
+            foreach (Control c in _fullscreen_parent.Controls)
+            {
+                if (c is StreamInfoContainer && c.Tag is int && c.Tag.Equals(video.Tag))
+                    _fullscreen_info = c;
+            }
+
+            // info first, then video: keeps the dock order of the panel
+            if (_fullscreen_info != null)
+            {
+                _fullscreen_info_index = _fullscreen_parent.Controls.GetChildIndex(_fullscreen_info);
+                _fullscreen_info.Parent = form;
+            }
+            video.Parent = form;
+            form.Show(this);
+        }
+
+        private void LeaveVideoFullScreen()
+        {
+            Form form = _fullscreen_form;
+            if (form == null)
+                return;
+
+            _fullscreen_form = null;
+
+            // lower index first
+            if (_fullscreen_info != null && _fullscreen_info_index < _fullscreen_index)
+            {
+                _fullscreen_info.Parent = _fullscreen_parent;
+                _fullscreen_parent.Controls.SetChildIndex(_fullscreen_info, _fullscreen_info_index);
+            }
+            _fullscreen_video.Parent = _fullscreen_parent;
+            _fullscreen_parent.Controls.SetChildIndex(_fullscreen_video, _fullscreen_index);
+            if (_fullscreen_info != null && _fullscreen_info.Parent != _fullscreen_parent)
+            {
+                _fullscreen_info.Parent = _fullscreen_parent;
+                _fullscreen_parent.Controls.SetChildIndex(_fullscreen_info, _fullscreen_info_index);
+            }
+            _fullscreen_info = null;
+            form.Close();
+            form.Dispose();
         }
 
         private void video_player_MouseWheel(object sender, MouseEventArgs e)
