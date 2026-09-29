@@ -34,7 +34,8 @@
 
 .PARAMETER AllowUnclean
     Skip the release guards (tag must exist, HEAD must be that tag, no modified tracked files,
-    baked version must equal the tag without the "V0.B-dh1rk-" prefix). For test packaging only.
+    tag listed in the Release dropdown of the issue templates, baked version must equal the tag
+    without the "V0.B-dh1rk-" prefix). For test packaging only.
 
 .EXAMPLE
     .\scripts\Build-ReleaseZip.ps1 -Tag "V0.B-dh1rk-beta4"
@@ -75,6 +76,15 @@ if (-not $AllowUnclean) {
     if ($tagCommit -ne $head) { throw "HEAD ($($head.Substring(0,7))) is not tag '$Tag' ($($tagCommit.Substring(0,7))). Check out the tagged commit or use -AllowUnclean." }
     $dirty = git -C $repoRoot status --porcelain --untracked-files=no
     if ($dirty) { throw "Tracked files are modified (would show '-dirty' in the title):`n$dirty`nCommit/stash them or use -AllowUnclean." }
+
+    # The issue templates offer the release in a dropdown. It has to be listed *before* tagging (in the
+    # commit the tag points to): changing the templates afterwards would move HEAD away from the tag.
+    foreach ($template in @("bug_report.yml", "feature_request.yml")) {
+        $templatePath = Join-Path $repoRoot ".github\ISSUE_TEMPLATE\$template"
+        if ((Test-Path $templatePath) -and -not (Select-String -Path $templatePath -SimpleMatch "- $Tag" -Quiet)) {
+            throw "Release '$Tag' is not listed in the Release dropdown of .github\ISSUE_TEMPLATE\$template. Add it (own issue/PR), re-create the tag on that commit, or use -AllowUnclean."
+        }
+    }
     if ($SkipBuild) { Write-Warning "-SkipBuild: the title version comes from the last build, verifying it below." }
 }
 
