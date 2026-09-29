@@ -128,7 +128,7 @@ namespace opentuner.MediaSources.Minitiouner
                 last_rendered = null;
         }
 
-        // Clears the display - call on shutdown so a stale reading isn't left on screen
+        // Clears the display and switches its backlight off - call on shutdown so a stale reading isn't left on screen
         // after OpenTuner closes. Bypasses change detection (always sends). Returns the
         // i2c_write_raw error code (0 = ok) so callers can log a shutdown failure instead
         // of it being silently discarded.
@@ -137,7 +137,12 @@ namespace opentuner.MediaSources.Minitiouner
             last_rendered = null;
             last_lines = null;
             _drawn_mer = double.NaN;
-            return hw.i2c_write_raw(i2c_address, Encoding.ASCII.GetBytes("CL"));
+            // "BL" + brightness byte 0 switches the backlight off too, so it isn't left shining on a blank screen
+            // (ShowGreeting turns it back on)
+            var cmd = new System.Collections.Generic.List<byte>();
+            cmd.AddRange(Encoding.ASCII.GetBytes("CL"));
+            AddCmd(cmd, "BL", 0);
+            return hw.i2c_write_raw(i2c_address, cmd.ToArray());
         }
 
         // Panel (BTG-160120D, monochrome graphic LCD) and font metrics in pixels. Width 160 and the
@@ -171,6 +176,7 @@ namespace opentuner.MediaSources.Minitiouner
 
             var cmd = new System.Collections.Generic.List<byte>();
             cmd.AddRange(Encoding.ASCII.GetBytes("CL"));
+            AddCmd(cmd, "BL", 100); // backlight back to full after Clear() switched it off
             AddCmd(cmd, "SC", 1);
 
             // No callsign configured: fall back to the device name so the screen isn't empty.

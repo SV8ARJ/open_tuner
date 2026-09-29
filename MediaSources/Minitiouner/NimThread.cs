@@ -1093,8 +1093,7 @@ namespace opentuner
                     }
                 }
 
-                // Leave the Digole on the callsign greeting (or a plain Clear if no callsign is
-                // set) instead of a stale reading after OpenTuner closes. Done here, on the
+                // Leave the Digole blank (CL) instead of a stale reading after OpenTuner closes. Done here, on the
                 // worker thread's own way out, not from Stop() (called from the UI thread) -
                 // guarded by HwLock like every other hardware access on this thread, so it can't
                 // interleave with MinitiounerSource.Close()'s own LED/LNB shutoff writes.
@@ -1105,16 +1104,8 @@ namespace opentuner
                     byte digole_err;
                     lock (HwLock)
                     {
-                        if (!string.IsNullOrEmpty(digole_callsign))
-                        {
-                            Log.Information("Nim Thread: Sending Digole shutdown greeting...");
-                            digole_err = digole.ShowGreeting(device_name, digole_callsign, digole_locator, digole_name, "END");
-                        }
-                        else
-                        {
-                            Log.Information("Nim Thread: Sending Digole shutdown clear...");
-                            digole_err = digole.Clear();
-                        }
+                        Log.Information("Nim Thread: Sending Digole shutdown clear...");
+                        digole_err = digole.Clear();
                     }
                     Log.Information("Nim Thread: Digole shutdown write sent, err=" + digole_err + ", elapsed=" + shutdown_sw.ElapsedMilliseconds + "ms");
                 }
