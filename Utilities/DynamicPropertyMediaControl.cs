@@ -32,6 +32,11 @@ namespace opentuner.Utilities
         private readonly int button_gap = 2;
         private readonly int left_margin = -10;
 
+        // False for sources that can't stop their tuner (only MiniTiouner/PicoTuner can, see
+        // OTSource.StopTuner): the "Stop TS" button is then not created at all and the other
+        // buttons close the gap - see ButtonLeft().
+        private readonly bool _showStopTS;
+
         public override string Key
         {
             get { return _key; }
@@ -90,9 +95,10 @@ namespace opentuner.Utilities
         {
         }
 
-        public DynamicPropertyMediaControls(GroupBox Group, string Key, string Title, ButtonPressedCallback ButtonPressedCB)
+        public DynamicPropertyMediaControls(GroupBox Group, string Key, string Title, ButtonPressedCallback ButtonPressedCB, bool showStopTS = true)
         {
             _buttonPressedCallback = ButtonPressedCB;
+            _showStopTS = showStopTS;
             InitComponents(Group, Key, Title, Color.Transparent);
         }
 
@@ -124,14 +130,18 @@ namespace opentuner.Utilities
             _RecordButton = MakeButton("REC", "Start/stop recording the TS stream", 1, top);
             _RecordButton.Click += _RecordButton_Click;
 
-            _StopTSButton = MakeButton("Stop TS", "Stop TS: ends decoding and stops the demodulator - the tuner needs a new signal click afterwards", 0, top);
-            _StopTSButton.Click += _StopTSButton_Click;
+            if (_showStopTS)
+            {
+                _StopTSButton = MakeButton("Stop TS", "Stop TS: ends decoding and stops the demodulator - the tuner needs a new signal click afterwards", 0, top);
+                _StopTSButton.Click += _StopTSButton_Click;
+            }
 
             _parent.Controls.Add(_MuteButton);
             _parent.Controls.Add(_SnapshotButton);
             _parent.Controls.Add(_RecordButton);
             _parent.Controls.Add(_UDPStreamButton);
-            _parent.Controls.Add(_StopTSButton);
+            if (_StopTSButton != null)
+                _parent.Controls.Add(_StopTSButton);
         }
 
         private Button MakeButton(string text, string tooltip, int slotFromRight, int top)
@@ -151,6 +161,9 @@ namespace opentuner.Utilities
 
         private int ButtonLeft(int slotFromRight)
         {
+            // Without the Stop TS button (slot 0) every other button moves one slot to the right.
+            if (!_showStopTS)
+                slotFromRight--;
             return left_margin + _parent.Width - ((slotFromRight + 1) * (buttonWidth + button_gap));
         }
 
@@ -185,7 +198,8 @@ namespace opentuner.Utilities
             _SnapshotButton.Left = ButtonLeft(3);
             _UDPStreamButton.Left = ButtonLeft(2);
             _RecordButton.Left = ButtonLeft(1);
-            _StopTSButton.Left = ButtonLeft(0);
+            if (_StopTSButton != null)
+                _StopTSButton.Left = ButtonLeft(0);
         }
 
         public override void UpdateColor(Color Col)

@@ -119,7 +119,7 @@ namespace opentuner.MediaSources.Longmynd
             dynamicPropertyGroup.AddItem("audio_codec", "Audio Codec");
             dynamicPropertyGroup.AddItem("audio_rate", "Audio Rate");
             dynamicPropertyGroup.AddSlider("volume_slider_" + tuner.ToString(), "Volume", 0, 200);
-            dynamicPropertyGroup.AddMediaControls("media_controls_" + tuner.ToString(), "Media Controls");
+            dynamicPropertyGroup.AddMediaControls("media_controls_" + tuner.ToString(), "Media Controls", showStopTS: false);
             return dynamicPropertyGroup;
         }
 

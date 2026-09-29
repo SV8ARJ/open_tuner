@@ -160,9 +160,10 @@ namespace opentuner.Utilities
             OnMediaButtonPressed?.Invoke(key, function);
         }
 
-        public void AddMediaControls(string Key, string Name)
+        // showStopTS: pass false for sources whose tuner can't be stopped (see OTSource.StopTuner).
+        public void AddMediaControls(string Key, string Name, bool showStopTS = true)
         {
-            var item = new DynamicPropertyMediaControls(_groupBox, Key, Name, ButtonPressedCallback);
+            var item = new DynamicPropertyMediaControls(_groupBox, Key, Name, ButtonPressedCallback, showStopTS);
             _items.Add(item);
         }
 

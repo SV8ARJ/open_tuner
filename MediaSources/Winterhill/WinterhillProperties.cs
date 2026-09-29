@@ -74,7 +74,7 @@ namespace opentuner.MediaSources.WinterHill
                 _tuner_properties[c].AddItem("audio_codec", "Audio Codec");
                 _tuner_properties[c].AddItem("audio_rate", "Audio Rate");
                 _tuner_properties[c].AddSlider("volume_slider_" + c.ToString(), "Volume", 0, 200);
-                _tuner_properties[c].AddMediaControls("media_controls_" + c.ToString(), "Media Controls");
+                _tuner_properties[c].AddMediaControls("media_controls_" + c.ToString(), "Media Controls", showStopTS: false);
 
                 muted[c] = _settings.DefaultMuted[c];
                 preMute[c] = (int)_settings.DefaultVolume[c];
