@@ -617,7 +617,7 @@ namespace opentuner
             //string signalReport = "SigReport: " + lblServiceName.Text.ToString() + "/" + lblServiceProvider.Text.ToString() + " - " + lbldbMargin.Text.ToString() + " (" + lblMer.Text.ToString() + ") - " + lblSR.Text.ToString() + "" + " - " + (freq).ToString() + " ";
             string signalReport = _settings.sigreport_template.ToString();
 
-            // SigReport: {SN}/{SP} - {DBM} - ({MER}) - {SR} - {VCODEC} - {FREQ}
+            // SigReport: {SN}/{SP} - {DBM} - ({MER}) - {SR} - {VCODEC} - {FREQ} - {TSERR}
 
             signalReport = signalReport.Replace("{SN}", data["ServiceName"]);
             signalReport = signalReport.Replace("{SP}", data["ServiceProvider"]);
@@ -626,6 +626,17 @@ namespace opentuner
             signalReport = signalReport.Replace("{SR}", data["SR"] + "");
             signalReport = signalReport.Replace("{VCODEC}", data["VideoCodec"] + "");
             signalReport = signalReport.Replace("{FREQ}", data["Frequency"] + "");
+
+            // TS errors of the last few seconds (MiniTiouner only, other sources don't provide them). Without any
+            // errors the placeholder and the " - " in front of it are removed, so a clean report stays as it was.
+            string ts_errors;
+            if (!data.TryGetValue("TSErrors", out ts_errors))
+                ts_errors = "";
+
+            if (ts_errors.Length > 0)
+                signalReport = signalReport.Replace("{TSERR}", "TS errors: " + ts_errors);
+            else
+                signalReport = Regex.Replace(signalReport, @"(\s*-)?\s*\{TSERR\}", "");
 
             txtMessage.Text = signalReport;
 

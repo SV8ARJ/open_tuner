@@ -33,6 +33,64 @@ namespace opentuner
 
         public CircularBuffer parser_ts_data_queue = new CircularBuffer(GlobalDefines.CircularBufferStartingCapacity);
 
+        // Continuity/transport error/sync loss counters over the last few seconds (issue #19).
+        public readonly TSHealth Health = new TSHealth();
+
+        // Last continuity counter seen per PID, -1 = none yet.
+        private readonly sbyte[] _last_cc = CreateLastCc();
+
+        private static sbyte[] CreateLastCc()
+        {
+            var last = new sbyte[MAX_PID];
+            Array.Fill(last, (sbyte)-1);
+            return last;
+        }
+
+        // Says on which PID the errors are (a muxer that doesn't maintain the counter of one side stream
+        // looks different from real packet loss), at most one line per 2 s so a bad stream can't flood the log.
+        private long _last_cc_log_ms = 0;
+        private int _cc_log_suppressed = 0;
+
+        private void LogContinuityError(uint pid, int expected, int found)
+        {
+            long now = Environment.TickCount64;
+
+            if (now - _last_cc_log_ms < 2000)
+            {
+                _cc_log_suppressed++;
+                return;
+            }
+
+            Log.Warning("TS continuity error: PID 0x" + pid.ToString("X4") + " expected " + expected + " got " + found +
+                        (_cc_log_suppressed > 0 ? " (+" + _cc_log_suppressed + " more since the last line)" : ""));
+            _last_cc_log_ms = now;
+            _cc_log_suppressed = 0;
+        }
+
+        // Continuity check for one packet (ISO 13818-1 2.4.3.3): the counter goes up by one for
+        // every packet of a PID that carries a payload; a repeat of the same value is a legal
+        // duplicate. Packets flagged with TEI or the discontinuity indicator can't be judged.
+        private void CheckContinuity(uint pid, byte[] packet)
+        {
+            bool has_payload = (packet[3] & 0x10) != 0;
+            bool transport_error = (packet[1] & 0x80) != 0;
+
+            if (!has_payload || transport_error)
+                return;
+
+            int cc = packet[3] & 0x0F;
+            int last = _last_cc[pid];
+            bool discontinuity = (packet[3] & 0x20) != 0 && packet[4] > 0 && (packet[5] & 0x80) != 0;
+
+            if (!discontinuity && last >= 0 && cc != last && cc != ((last + 1) & 0x0F))
+            {
+                Health.AddContinuityError();
+                LogContinuityError(pid, (last + 1) & 0x0F, cc);
+            }
+
+            _last_cc[pid] = (sbyte)cc;
+        }
+
         // Thread.Abort() doesn't exist on modern .NET (throws PlatformNotSupportedException) -
         // worker_thread() checks this cooperatively instead.
         private volatile bool _stopRequested = false;
@@ -49,6 +107,7 @@ namespace opentuner
             uint ts_packet_total_count = 0;
             uint ts_packet_null_count = 0;
             uint ts_invalid_packet_count = 0;
+            bool sync_lost = false;
 
             string prevServiceName = "";
             string prevServiceProvider = "";
@@ -69,6 +128,8 @@ namespace opentuner
 
                             if (check == TS_HEADER_SYNC)
                             {
+                                sync_lost = false;
+
                                 // get the complete packet
                                 byte[] ts_packet = new byte[TS_PACKET_SIZE];
 
@@ -95,6 +156,16 @@ namespace opentuner
                                 UInt32 ts_pid = (UInt32)((ts_packet[1] & 0x1F) << 8) | (UInt32)ts_packet[2];
 
                                 //Log.Information("TS Pid: " + ts_pid.ToString("X"));
+
+                                // TS health (issue #19)
+                                if ((ts_packet[1] & 0x80) != 0)
+                                    Health.AddTransportError();
+
+                                if (ts_pid != TS_PID_NULL)
+                                    CheckContinuity(ts_pid, ts_packet);
+
+                                if (ts_pid != TS_PID_NULL && (ts_packet[3] & 0xC0) != 0)   // transport_scrambling_control
+                                    Health.AddScrambled();
 
                                 UInt32 ts_adaption_field_flag = (UInt32)(ts_packet[3] & 0x20) >> 5;
 
@@ -187,6 +258,8 @@ namespace opentuner
 
                                         prevServiceName = service_provider_name;
                                         prevServiceProvider = service_provider;
+
+                                        Health.Reset();
                                     }
 
                                     if (ts_data_callback != null)
@@ -207,7 +280,13 @@ namespace opentuner
                             }
                             else
                             {
-                                // remove the byte and continue
+                                // remove the byte and continue - counted once per stretch of lost sync, not per byte
+                                if (!sync_lost)
+                                {
+                                    sync_lost = true;
+                                    Health.AddSyncLoss();
+                                }
+
                                 check = parser_ts_data_queue.Dequeue();
                                 continue;
                             }

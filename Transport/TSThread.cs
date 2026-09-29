@@ -25,6 +25,20 @@ namespace opentuner
         private bool worker_thread_stopped = false;
         private bool shutdown_worker_thread = false;
 
+        // Buffer overflow events of the consumer queues (issue #19).
+        public readonly TSHealth Health = new TSHealth();
+
+        private long DroppedBytesOfConsumers()
+        {
+            long dropped = 0;
+            for (int consumers = 0; consumers < registered_consumers.Count; consumers++)
+            {
+                if (registered_consumers[consumers] != null)
+                    dropped += registered_consumers[consumers].DroppedBytes;
+            }
+            return dropped;
+        }
+
         public TSThread(CircularBuffer _raw_ts_data_queue, FlushTS _flush_ts_callback, ReadTS _read_ts_callback, string _identifier)
         {
             Log.Information(" >> Starting TS Thread <<");
@@ -132,6 +146,8 @@ namespace opentuner
 
                         if (dataRead > 0)
                         {
+                            long dropped_before = DroppedBytesOfConsumers();
+
                             for (int c = 0; c < dataRead; c++)
                             {
                                 for (int consumers = 0; consumers < registered_consumers.Count; consumers++)
@@ -140,6 +156,9 @@ namespace opentuner
                                         registered_consumers[consumers].Enqueue(data[c]);
                                 }
                             }
+
+                            if (DroppedBytesOfConsumers() > dropped_before)
+                                Health.AddBufferOverflow();
                         }
                     }
                 }

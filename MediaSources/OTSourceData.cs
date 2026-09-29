@@ -14,5 +14,12 @@
         public int volume = 0;
         public bool streaming = false;
         public bool recording = false;
+
+        // TS errors over the last few seconds (issue #19), see TSHealth
+        public uint ts_cc_errors = 0;
+        public uint ts_tei_errors = 0;
+        public uint ts_sync_losses = 0;
+        public uint ts_scrambled = 0;
+        public uint ts_buffer_overflows = 0;
     }
 }

@@ -579,6 +579,32 @@ namespace opentuner.MediaSources.Minitiouner
             }
         }
 
+        // TS error counters of the last few seconds for the info line above the video (issue #19).
+        private static void FillTsHealth(OTSourceData data, TSParserThread parser, TSThread ts_thread)
+        {
+            if (parser != null)
+            {
+                TSHealthCounts h = parser.Health.Get();
+                data.ts_cc_errors = h.Continuity;
+                data.ts_tei_errors = h.Transport;
+                data.ts_sync_losses = h.Sync;
+                data.ts_scrambled = h.Scrambled;
+            }
+
+            if (ts_thread != null)
+                data.ts_buffer_overflows = ts_thread.Health.Get().Overflow;
+        }
+
+        private static string TsErrorText(TSParserThread parser, TSThread ts_thread)
+        {
+            TSHealthCounts h = parser != null ? parser.Health.Get() : new TSHealthCounts();
+
+            if (ts_thread != null)
+                h.Overflow = ts_thread.Health.Get().Overflow;
+
+            return TSHealth.Describe(h);
+        }
+
         private void UpdateTSProperties(int tuner, TSStatus ts_status)
         {
             DynamicPropertyGroup _tuner = (tuner == 1 ? _tuner1_properties : _tuner2_properties);
@@ -851,6 +877,8 @@ namespace opentuner.MediaSources.Minitiouner
             source_data.db_margin = dbmargin;
             source_data.service_name = _tuner1_properties.GetValue("service_name");
             source_data.symbol_rate = (int)(new_status.T1P2_symbol_rate / 1000);
+            source_data.demode_state = lookups.demod_state_lookup[new_status.T1P2_demod_status];
+            source_data.modcode = modcod_text;
 
             if (_ts_recorders != null && _ts_recorders.Count > 0)
                 _ts_recorders[0].StationInfo = opentuner.Utilities.CommonFunctions.StationSuffix(source_data.service_name, current_sr_0);
@@ -862,6 +890,8 @@ namespace opentuner.MediaSources.Minitiouner
             }
             
             source_data.demod_locked = (new_status.T1P2_demod_status >  1);
+
+            FillTsHealth(source_data, ts_parser_thread, ts_thread);
 
             opentuner.Utilities.DiagnosticsHelper.MeasureSlow("Status update tuner 1 (OnSourceData)", 250, () => OnSourceData?.Invoke(0, source_data, "Tuner 1"));
 
@@ -975,6 +1005,10 @@ namespace opentuner.MediaSources.Minitiouner
                 source_data_2.service_name = _tuner2_properties.GetValue("service_name");
                 source_data_2.demod_locked = (new_status.T2P1_demod_status > 1);
                 source_data_2.symbol_rate = (int)(new_status.T2P1_symbol_rate / 1000);
+                source_data_2.demode_state = lookups.demod_state_lookup[new_status.T2P1_demod_status];
+                source_data_2.modcode = modcod_text;
+
+                FillTsHealth(source_data_2, ts_parser_thread2, ts_thread2);
 
                 if (_ts_recorders != null && _ts_recorders.Count > 1)
                     _ts_recorders[1].StationInfo = opentuner.Utilities.CommonFunctions.StationSuffix(source_data_2.service_name, current_sr_1);
@@ -1197,6 +1231,7 @@ namespace opentuner.MediaSources.Minitiouner
                 data.Add("SR", current_sr_0.ToString());
                 data.Add("VideoCodec", last_video_codec_0);
                 data.Add("Frequency", ((float)(current_frequency_0 + _settings.Offset1) / 1000.0f).ToString("F", nfi));
+                data.Add("TSErrors", TsErrorText(ts_parser_thread, ts_thread));
             }
 
             if (device == 1)
@@ -1208,6 +1243,7 @@ namespace opentuner.MediaSources.Minitiouner
                 data.Add("SR", current_sr_1.ToString());
                 data.Add("VideoCodec", last_video_codec_1);
                 data.Add("Frequency", ((float)(current_frequency_1 + _settings.Offset2) / 1000.0f).ToString("F", nfi));
+                data.Add("TSErrors", TsErrorText(ts_parser_thread2, ts_thread2));
             }
 
             return data;

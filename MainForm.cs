@@ -960,8 +960,13 @@ namespace opentuner
             }
         }
 
+        // Right click toggles the info line above the video and the choice is saved. Left click used to
+        // do this too, so an accidental click in the picture hid it for good (issue #19).
         private void video_player_MouseClick(object sender, MouseEventArgs e)
         {
+            if (e.Button != MouseButtons.Right)
+                return;
+
             int video_nr = (int)((Control)sender).Tag;
 
             if (info_display.Count > video_nr)

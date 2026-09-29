@@ -13,6 +13,9 @@ namespace opentuner
 
         public int Count { get; private set; }
 
+        // Bytes thrown away by Enqueue(byte) because the buffer was full (consumer too slow), issue #19.
+        public long DroppedBytes { get; private set; }
+
         public CircularBuffer(int capacity)
         {
             if (capacity <= 0)
@@ -30,6 +33,7 @@ namespace opentuner
             {
                 if (Count == capacity)
                 {
+                    DroppedBytes++;
                     Dequeue();
                 }
 

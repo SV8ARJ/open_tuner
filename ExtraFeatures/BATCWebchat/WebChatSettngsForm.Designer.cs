@@ -59,7 +59,7 @@
             this.groupBox4.Margin = new System.Windows.Forms.Padding(4);
             this.groupBox4.Name = "groupBox4";
             this.groupBox4.Padding = new System.Windows.Forms.Padding(4);
-            this.groupBox4.Size = new System.Drawing.Size(924, 279);
+            this.groupBox4.Size = new System.Drawing.Size(924, 320);
             this.groupBox4.TabIndex = 4;
             this.groupBox4.TabStop = false;
             this.groupBox4.Text = "QO-100 Specific";
@@ -122,10 +122,10 @@
             this.label14.Location = new System.Drawing.Point(30, 129);
             this.label14.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.label14.Name = "label14";
-            this.label14.Size = new System.Drawing.Size(230, 96);
+            this.label14.Size = new System.Drawing.Size(330, 112);
             this.label14.TabIndex = 5;
             this.label14.Text = "{SN} - ServiceName\r\n{SP} - ServiceProvider\r\n{DBM} - db Margin (D)\r\n{MER} - Mer\r\n{" +
-    "SR} - Symbol Rate\r\n{VCODEC} - Video Codec\r\n{FREQ} - Freq\r\n";
+    "SR} - Symbol Rate\r\n{VCODEC} - Video Codec\r\n{FREQ} - Freq\r\n{TSERR} - TS errors, last 10 s (MiniTiouner)";
             // 
             // txtSigReportTemplate
             // 
@@ -148,7 +148,7 @@
             // 
             // btnSave
             // 
-            this.btnSave.Location = new System.Drawing.Point(840, 302);
+            this.btnSave.Location = new System.Drawing.Point(840, 343);
             this.btnSave.Margin = new System.Windows.Forms.Padding(4);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(100, 28);
@@ -160,7 +160,7 @@
             // btnCancel
             // 
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Location = new System.Drawing.Point(732, 302);
+            this.btnCancel.Location = new System.Drawing.Point(732, 343);
             this.btnCancel.Margin = new System.Windows.Forms.Padding(4);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(100, 28);
@@ -172,7 +172,7 @@
             // checkAutoStart
             // 
             this.checkAutoStart.AutoSize = true;
-            this.checkAutoStart.Location = new System.Drawing.Point(22, 245);
+            this.checkAutoStart.Location = new System.Drawing.Point(22, 277);
             this.checkAutoStart.Name = "checkAutoStart";
             this.checkAutoStart.Size = new System.Drawing.Size(110, 20);
             this.checkAutoStart.TabIndex = 10;
@@ -182,7 +182,7 @@
             // checkAutoLogin
             // 
             this.checkAutoLogin.AutoSize = true;
-            this.checkAutoLogin.Location = new System.Drawing.Point(168, 245);
+            this.checkAutoLogin.Location = new System.Drawing.Point(168, 277);
             this.checkAutoLogin.Name = "checkAutoLogin";
             this.checkAutoLogin.Size = new System.Drawing.Size(114, 20);
             this.checkAutoLogin.TabIndex = 11;
@@ -195,7 +195,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoSize = true;
             this.CancelButton = this.btnCancel;
-            this.ClientSize = new System.Drawing.Size(960, 352);
+            this.ClientSize = new System.Drawing.Size(960, 393);
             this.ControlBox = false;
             this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.btnSave);
