@@ -493,6 +493,9 @@ namespace opentuner.MediaSources.Minitiouner
                 case 2: hardware_interface = new PicoTunerInterface(); break;
             }
 
+            // with several boards connected: which one to use (setting PreferredBoardSerial, "" = automatic)
+            if (hardware_interface is FTDIInterface ftdi_interface)
+                ftdi_interface.PreferredBoardSerial = _settings.PreferredBoardSerial ?? "";
 
             return Initialize(VideoChangeCB, SourceStatusCB, false, "", "", "", Parent);
         }
@@ -999,6 +1002,9 @@ namespace opentuner.MediaSources.Minitiouner
             info.Add(new KeyValuePair<string, string>("Board", HardwareDevice ?? "unknown"));
             info.Add(new KeyValuePair<string, string>("TS streams", ts_devices.ToString()));
             info.Add(new KeyValuePair<string, string>("Used FTDI devices (index)", _detected_ports));
+            string detection = (hardware_interface as FTDIInterface)?.DetectionSummary;
+            if (!string.IsNullOrEmpty(detection))
+                info.Add(new KeyValuePair<string, string>("Board detection", detection));
             info.Add(new KeyValuePair<string, string>("AUX chip (EXTERN outputs)", AuxAvailable ? "open" : "not available"));
 
             var status = _last_status;

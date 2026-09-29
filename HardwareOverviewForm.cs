@@ -120,6 +120,10 @@ namespace opentuner
                   + "   (\"open\" = in use by a program, e.g. OpenTuner itself; gray = not a MiniTiouner chip, skipped)";
 
             var text = new StringBuilder();
+            text.AppendLine("Boards (channels grouped per board)");
+            foreach (var line in BoardLines())
+                text.AppendLine("  " + line);
+            text.AppendLine();
             if (_source_list == null)
             {
                 text.AppendLine(_source == null ? "Not connected." : "This source has no hardware details.");
@@ -131,6 +135,29 @@ namespace opentuner
             }
             _sourceInfo.Text = text.ToString();
             _sourceInfo.SelectionStart = 0;
+        }
+
+        // One line per board the detection finds in the device list, plus its warnings (same code as at connect)
+        private List<string> BoardLines()
+        {
+            var lines = new List<string>();
+            var warnings = new List<string>();
+            var boards = BoardDetection.Detect(_device_list, warnings);
+
+            if (boards.Count == 0)
+                lines.Add("no MiniTiouner board found");
+
+            foreach (var b in boards)
+            {
+                Func<uint, string> port = p => p == MiniTiounerBoard.None ? "-" : p.ToString();
+                lines.Add(b.Name + ": " + b.TsCount + " TS, I2C " + port(b.I2c) + ", TS " + port(b.Ts) + ", TS2 " + port(b.Ts2) + ", AUX " + port(b.Aux)
+                    + (b.Complete ? "" : " (incomplete)"));
+            }
+
+            foreach (var w in warnings)
+                lines.Add("warning: " + w);
+
+            return lines;
         }
 
         private string BuildReport()
@@ -150,6 +177,11 @@ namespace opentuner
                 sb.AppendLine("  " + d.Index.ToString().PadRight(3) + d.Type.PadRight(20) + d.Description.PadRight(32) + d.Serial.PadRight(14)
                     + d.Role.PadRight(6) + d.Board.PadRight(22) + (d.IsOpen ? "open" : "free").PadRight(7) + "0x" + d.LocId.ToString("X"));
             }
+
+            sb.AppendLine();
+            sb.AppendLine("Boards (channels grouped per board)");
+            foreach (var line in BoardLines())
+                sb.AppendLine("  " + line);
 
             sb.AppendLine();
             sb.AppendLine("Connected source");

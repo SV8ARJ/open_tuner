@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using FTD2XX_NET;
 using System.Threading;
 using FlyleafLib.MediaFramework.MediaDevice;
+using opentuner.MediaSources.Minitiouner;
 using opentuner.MediaSources.Minitiouner.HardwareInterfaces;
 using Serilog;
 
@@ -817,173 +818,77 @@ namespace opentuner
             return err;
         }
 
+        // Summary of the last description based detection (boards found / used / ignored), for the log and
+        // the Hardware Info window.
+        public string DetectionSummary { get; private set; } = "";
+
+        // Chip serial number of the board to use when several boards are connected ("" = automatic:
+        // most TS streams first). From the Minitiouner settings.
+        public string PreferredBoardSerial { get; set; } = "";
+
         public override byte hw_detect(ref uint i2c_port, ref uint ts_port, ref uint ts_port2, ref uint aux_port, ref string detectedDeviceName)
         {
             Log.Information("**** FTDI Port(s) Detection ****");
-
-            byte err = 0;
-            uint devcount = 0;
 
             ts_port = 99;
             i2c_port = 99;
             ts_port2 = 99;
             aux_port = 99;
+            DetectionSummary = "";
 
-            try
+            var devices = HardwareInfo.EnumerateFtdiDevices(out string list_error);
+            Log.Information("Number of FTDI Devices: " + devices.Count.ToString());
+
+            if (list_error != null)
             {
-                ftStatus = ftdiDevice_i2c.GetNumberOfDevices(ref devcount);
-                Log.Information("Number of FTDI Devices: " + devcount.ToString());
-
-                // we need atleast two ports
-                if (devcount < 2)
-                {
-                    Log.Error("Not enough FTDI devices detected");
-                    return 1;
-                }
-
-                for (uint c = 0; c < devcount; c++)
-                {
-                    FTD2XX_NET.FTDI ftdi_device = new FTD2XX_NET.FTDI();
-                    ftdi_device.OpenByIndex(c);
-
-                    FTD2XX_NET.FTDI.FT_DEVICE device = new FTD2XX_NET.FTDI.FT_DEVICE();
-                    ftdi_device.GetDeviceType(ref device);
-
-                    ftdi_device.GetSerialNumber(out string SerialNumber);
-
-                    Log.Information("Serial Number: " + SerialNumber.ToString());
-
-                    // is this a ft2232 device?
-                    if (device.ToString() != "FT_DEVICE_2232H")
-                    {
-                        Log.Information(c.ToString() + ": not a FT2232H device (" + device.ToString() + ") skipping");
-                        ftdi_device.Close();
-                        continue;
-                    }
-                    else
-                    {
-                        Log.Information(c.ToString() + ": is a FT2232H device");
-                    }
-
-                    // lets get description
-                    string deviceName = "";
-                    ftdi_device.GetDescription(out deviceName);
-
-                    Log.Information("Description:" + deviceName);
-
-#if READ_FTDI_EEPROM
-                    // Disabled by default: reading the EEPROM takes about 0.4 s per FT2232H, and this detection runs on
-                    // the UI thread (about 1.5 s of frozen UI with a MiniTiouner Pro, see issue #6). The values were only
-                    // written to the log, the ports are assigned by the device description. Define READ_FTDI_EEPROM
-                    // (e.g. <DefineConstants> in opentuner.csproj) if information from the EEPROM is needed.
-                    FTD2XX_NET.FTDI.FT2232H_EEPROM_STRUCTURE eeprom = new FTD2XX_NET.FTDI.FT2232H_EEPROM_STRUCTURE();
-                    ftdi_device.ReadFT2232HEEPROM(eeprom);
-
-                    Log.Information("A Fifo: " + eeprom.IFAIsFifo.ToString());
-                    Log.Information("B Fifo: " + eeprom.IFBIsFifo.ToString());
-#endif
-
-                    if (deviceName.Contains("NIM tuner A"))
-                    {
-                        Log.Information("Should be the i2c port for a BATC V2 Minitiouner");
-                        i2c_port = c;
-                        detectedDeviceName = "BATC V2 Minitiouner";
-                    }
-
-                    if (deviceName.Contains("NIM tuner B"))
-                    {
-                        Log.Information("Should be the ts port for a BATC V2 Minitiouner");
-                        ts_port = c;
-                    }
-
-                    if (deviceName.Contains("NIM DB tuner B"))
-                    {
-                        Log.Information("Should be the 2nd ts port for a BATC V2 Minitiouner");
-                        ts_port2 = c;
-                    }
-
-                    if (deviceName.Contains("MiniTiouner_Pro_TS2 A"))
-                    {
-                        Log.Information("Should be the i2c port for a Minitiouner Pro 2 (" + deviceName.ToString() + ")");
-                        i2c_port = c;
-                        detectedDeviceName = "Minitiouner Pro 2";
-                    }
-
-                    if (deviceName.Contains("MiniTiouner_Pro_TS2 B"))
-                    {
-                        Log.Information("Should be the ts port for a Minitiouner Pro 2 (" + deviceName.ToString() + ")");
-                        ts_port = c;
-                    }
-
-                    if (deviceName.Contains("MiniTiouner_Pro_TS1 B"))
-                    {
-                        Log.Information("Should be the 2nd ts port for a Minitiouner Pro 2 (" + deviceName.ToString() + ")");
-                        ts_port2 = c;
-                    }
-
-                    if (deviceName.Contains("MiniTiouner_Pro_TS1 A"))
-                    {
-                        Log.Information("Should be the AUX (EXTERN-0..7 GPIO) port for a Minitiouner Pro 2 (" + deviceName.ToString() + ")");
-                        aux_port = c;
-                    }
-
-                    if (deviceName.Contains("MiniTiouner A"))
-                    {
-                        Log.Information("Should be the i2c port for a Minitiouner-S");
-                        i2c_port = c;
-                        detectedDeviceName = "Minitiouner-S";
-                    }
-
-                    if (deviceName.Contains("MiniTiouner B"))
-                    {
-                        Log.Information("Should be the ts port for a Minitiouner-S");
-                        ts_port = c;
-                    }
-
-                    if (deviceName.Contains("Minitiouner S A"))
-                    {
-
-                        Log.Information("Should be the i2c port for a Minitiouner-S");
-                        i2c_port = c;
-                        detectedDeviceName = "Minitiouner-S";
-                    }
-
-                    if (deviceName.Contains("Minitiouner S B"))
-                    {
-                        Log.Information("Should be the ts port for a Minitiouner-S");
-                        ts_port = c;
-                    }
-
-
-                    if (deviceName.Contains("MiniTiouner-Express A"))
-                    {
-                        Log.Information("Should be the i2c port for a Minitiouner Express");
-                        i2c_port = c;
-                        detectedDeviceName = "Minitiouner Express";
-                    }
-
-                    if (deviceName.Contains("MiniTiouner-Express B"))
-                    {
-                        Log.Information("Should be the ts port for a Minitiouner Express");
-                        ts_port = c;
-                    }
-
-                    ftdi_device.Close();
-                    Log.Information(" ---- ");
-                }
-
-                Log.Information(" **** ");
-
-
-            }
-            catch (Exception ex)
-            {
-                Log.Error("FTDI Error: " + ex.Message);
+                Log.Error("FTDI Error: " + list_error);
                 return 1;
             }
 
+            // we need atleast two ports
+            if (devices.Count < 2)
+            {
+                Log.Error("Not enough FTDI devices detected");
+                return 1;
+            }
 
-            return err;
+            foreach (var d in devices)
+            {
+                Log.Information(d.Index.ToString() + ": " + d.Type + ", serial " + d.Serial + ", description \"" + d.Description + "\""
+                    + (d.Role != "-" ? " -> " + d.Role + " of " + d.Board : " (skipped)"));
+            }
+
+            // group the channels per board instead of taking the last match per role
+            var warnings = new List<string>();
+            var boards = BoardDetection.Detect(devices, warnings);
+            foreach (var w in warnings)
+                Log.Warning("FTDI board detection: " + w);
+
+            var board = BoardDetection.Select(boards, PreferredBoardSerial);
+
+            var summary = new StringBuilder();
+            summary.Append(boards.Count + " board(s) found");
+            foreach (var b in boards)
+                summary.Append("; " + (b == board ? "USED " : "ignored ") + b.Name + ", " + b.TsCount + " TS" + (b.Complete ? "" : ", incomplete"));
+            foreach (var w in warnings)
+                summary.Append("; " + w);
+            DetectionSummary = summary.ToString();
+            Log.Information("FTDI boards: " + DetectionSummary);
+
+            if (boards.Count > 1)
+                Log.Warning("FTDI board detection: " + boards.Count + " boards connected, only " + (board != null ? board.Name : "none") + " is used (PreferredBoardSerial = \"" + PreferredBoardSerial + "\")");
+
+            if (board == null)
+                return 0;   // nothing usable: ports stay 99, the caller falls back to the first devices
+
+            i2c_port = board.I2c;
+            ts_port = board.Ts;
+            ts_port2 = board.Ts2;
+            aux_port = board.Aux;
+            detectedDeviceName = board.Type;
+
+            Log.Information(" **** ");
+            return 0;
         }
 
         public override bool AuxAvailable => aux_available;
