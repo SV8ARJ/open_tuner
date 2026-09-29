@@ -693,6 +693,7 @@ namespace opentuner.MediaSources.Minitiouner
                 _settings.EnableDigoleDisplay, _settings.DigoleI2cAddress, HardwareDevice,
                 new uint[] { _settings.Offset1, _settings.Offset2 }, _settings.DigoleCallsign,
                 _settings.DigoleLocator, _settings.DigoleName);
+            nim_thread.ApplyReceiverSettings(_settings);
             nim_thread_t = new Thread(nim_thread.worker_thread);
             nim_thread_t.IsBackground = true;
 

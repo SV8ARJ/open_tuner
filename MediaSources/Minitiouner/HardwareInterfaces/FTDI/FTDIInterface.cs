@@ -44,14 +44,14 @@ namespace opentuner
         const uint ClockDivisor = 0x0095;
 
         // Sending and receiving
-        static uint NumBytesToSend = 0;
+        uint NumBytesToSend = 0;
         uint NumBytesSent = 0;
-        static uint NumBytesRead = 0;
-        static byte[] MPSSEbuffer = new byte[500];
-        static byte[] InputBuffer = new byte[500];
-        static byte[] InputBuffer2 = new byte[500];
-        static uint BytesAvailable = 0;
-        static byte I2C_Status = 0;
+        uint NumBytesRead = 0;
+        byte[] MPSSEbuffer = new byte[500];
+        byte[] InputBuffer = new byte[500];
+        byte[] InputBuffer2 = new byte[500];
+        uint BytesAvailable = 0;
+        byte I2C_Status = 0;
         public bool Running = true;
 
         FTD2XX_NET.FTDI.FT_STATUS ftStatus = FTD2XX_NET.FTDI.FT_STATUS.FT_OK;
@@ -62,7 +62,7 @@ namespace opentuner
         // U12/ULN2803 -> 8 LED headers, see schematic sheet 2/5). Deliberately kept separate from
         // ftdiDevice_i2c/MPSSEbuffer/etc. above: it's a different USB device, and EXTERN writes need
         // to be safe to call from the UI thread at any time without racing NimThread's I2C traffic
-        // on the static MPSSEbuffer.
+        // on the MPSSEbuffer (per board since #29, was static).
         FTD2XX_NET.FTDI ftdiDevice_aux = new FTD2XX_NET.FTDI();
         bool aux_available = false;
         byte aux_gpio_highbyte_value = 0x00;

@@ -254,6 +254,9 @@ namespace opentuner.MediaSources.Minitiouner
         // (signed), tmglock: timing lock indicator accumulator (16 bit). constellation: 16 (I, Q) samples
         // or null. lock_time_ms: software-measured time to lock, -1 = not locked yet. cn_needed_db: C/N the
         // received MODCOD needs (NaN = unknown).
+        // master clock of the demodulator this view belongs to (from the status), for the TS bit rate
+        public uint MclkHz { get; set; } = 135000000;
+
         public void Update(byte demod_status, short rf_dbm, double mer_db, byte dstatus, byte dstatus2, sbyte ldi, ushort tmglock,
                            uint symbol_rate, byte[,] constellation, double lock_time_ms, double cn_needed_db,
                            byte ldpc_iterations, byte ldpc_max_iterations, uint viterbi_error_rate,
@@ -299,7 +302,7 @@ namespace opentuner.MediaSources.Minitiouner
                 _ts_bitrate_avg = double.NaN;
             SetText(_ts_bitrate_label, double.IsNaN(_ts_bitrate_avg)
                 ? "TS Bitrate:  -"
-                : "TS Bitrate:  " + (_ts_bitrate_avg * (stv0910.MclkHz / 1e6) / 16384.0).ToString("N3") + " Mb/s");
+                : "TS Bitrate:  " + (_ts_bitrate_avg * (MclkHz / 1e6) / 16384.0).ToString("N3") + " Mb/s");
             SetText(_refresh_label, "Refresh Time:  " + refresh_ms + " ms");
 
             // VERROR: error rate seen by the Viterbi decoder, DVB-S (not S2) only. viterbi_error_rate is in 1/100 %.

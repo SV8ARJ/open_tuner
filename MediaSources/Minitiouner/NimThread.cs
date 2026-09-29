@@ -138,6 +138,21 @@ namespace opentuner
         // offset_included=true behavior, which the main GUI itself uses for the same reason.
         private uint[] frequency_offsets;
 
+        // The receiver settings of this board (low symbol rate profile, carrier algorithm, baseband gain ...) go to its own
+        // demodulator/tuner object; call before the thread is started (they were static before, shared by all boards).
+        public void ApplyReceiverSettings(MinitiounerSettings s)
+        {
+            _stv0910.AllowLowSrClock = s.LowSrClock;
+            _stv0910.LowSrProfile = s.LowSrProfile;
+            _stv0910.MiniTiouneInit = s.MiniTiouneInit;
+            _stv0910.LowSrDvbS1 = s.LowSrDvbS1;
+            _stv0910.LowSrSrScan = s.LowSrSrScan;
+            _stv0910.LowSrManualSfr = s.LowSrManualSfr;
+            _stv0910.CarrierPhaseAlgo = (byte)Math.Max(0, Math.Min(2, (int)s.CarrierPhaseAlgo));
+            _stv0910.IqSwap = s.IqSwap;
+            _stv6120.BasebandGainCode = (byte)Math.Max(0, Math.Min(8, s.BasebandGainDb / 2));
+        }
+
         public NimThread(ConcurrentQueue<TunerConfig> _config_queue, MTHardwareInterface _hardware, SourceStatusCallback _status_callback, bool _no_lna, bool _enable_digole = false, byte _digole_i2c_address = 0x27, string _device_name = "", uint[] _frequency_offsets = null, string _digole_callsign = "", string _digole_locator = "", string _digole_name = "")
         {
             hardware = _hardware;
@@ -565,7 +580,7 @@ namespace opentuner
                                   " NNOSFRAME=" + candidates[4] + " NNOSRAD=" + candidates[5] + " NOSDATAT_abs=" + candidates[6] +
                                   " | power I=" + log_power_i + " Q=" + log_power_q +
                                   " | TSBITRATE=" + (d == 0 ? nim_status.T1P2_ts_bitrate_raw : nim_status.T2P1_ts_bitrate_raw) +
-                                  " -> " + ((d == 0 ? nim_status.T1P2_ts_bitrate_raw : nim_status.T2P1_ts_bitrate_raw) * (long)stv0910.MclkHz / 16384) + " bit/s");
+                                  " -> " + ((d == 0 ? nim_status.T1P2_ts_bitrate_raw : nim_status.T2P1_ts_bitrate_raw) * (long)_stv0910.MclkHz / 16384) + " bit/s");
                 }
             }
 
@@ -588,12 +603,12 @@ namespace opentuner
                         text.Append(" " + stv0910.SearchRegisterNames[i] + "=" + search_values[i].ToString("X2"));
 
                     // 16 bit pairs in Hz: SFRxxx = MCLK * value / 2^16, CFRxxx = MCLK * value / 2^16 (signed)
-                    double sfr_init = (double)stv0910.MclkHz * ((search_values[0] << 8) | search_values[1]) / 65536.0;
-                    double sfr_up = (double)stv0910.MclkHz * (((search_values[2] & 0x7F) << 8) | search_values[3]) / 65536.0;
-                    double sfr_low = (double)stv0910.MclkHz * (((search_values[4] & 0x7F) << 8) | search_values[5]) / 65536.0;
-                    double cfr_init = (double)stv0910.MclkHz * (short)((search_values[6] << 8) | search_values[7]) / 65536.0;
-                    double cfr_up = (double)stv0910.MclkHz * (short)((search_values[8] << 8) | search_values[9]) / 65536.0;
-                    double cfr_low = (double)stv0910.MclkHz * (short)((search_values[10] << 8) | search_values[11]) / 65536.0;
+                    double sfr_init = (double)_stv0910.MclkHz * ((search_values[0] << 8) | search_values[1]) / 65536.0;
+                    double sfr_up = (double)_stv0910.MclkHz * (((search_values[2] & 0x7F) << 8) | search_values[3]) / 65536.0;
+                    double sfr_low = (double)_stv0910.MclkHz * (((search_values[4] & 0x7F) << 8) | search_values[5]) / 65536.0;
+                    double cfr_init = (double)_stv0910.MclkHz * (short)((search_values[6] << 8) | search_values[7]) / 65536.0;
+                    double cfr_up = (double)_stv0910.MclkHz * (short)((search_values[8] << 8) | search_values[9]) / 65536.0;
+                    double cfr_low = (double)_stv0910.MclkHz * (short)((search_values[10] << 8) | search_values[11]) / 65536.0;
                     text.Append(" | SFRINIT=" + Math.Round(sfr_init) + " SFRUP=" + Math.Round(sfr_up) + " SFRLOW=" + Math.Round(sfr_low) +
                                 " S/s, CFRINIT=" + Math.Round(cfr_init) + " CFRUP=" + Math.Round(cfr_up) + " CFRLOW=" + Math.Round(cfr_low) + " Hz");
                     Log.Debug(text.ToString());
@@ -631,6 +646,7 @@ namespace opentuner
             nim_status.T2P1_carrier_up_hz = carrier_up_hz - _stv0910.AppliedLowSrOffsetHz(1);
 
             // chip identification (cached from init) and the demodulator's system PLL
+            nim_status.mclk_hz = _stv0910.MclkHz;
             nim_status.chip_mid = _stv0910.ChipMid;
             nim_status.chip_did = _stv0910.ChipDid;
             bool pll_locked = false;
@@ -927,12 +943,12 @@ namespace opentuner
 
                                     if (nim_config.tuner == 1)
                                     {
-                                        err = _stv6120.stv6120_init(1, (uint)((int)nim_config.frequency + nim_config.freq_correction_khz - stv0910.LowSrOffsetKHz(nim_config.symbol_rate)), nim_config.rf_input, nim_config.symbol_rate);
+                                        err = _stv6120.stv6120_init(1, (uint)((int)nim_config.frequency + nim_config.freq_correction_khz - _stv0910.LowSrOffsetKHz(nim_config.symbol_rate)), nim_config.rf_input, nim_config.symbol_rate);
                                     }
                                     else
                                     {
                                         //err = _stv6120.stv6120_init(2, 749246, nim.NIM_INPUT_TOP, 333);
-                                        err = _stv6120.stv6120_init(2, (uint)((int)nim_config.frequency + nim_config.freq_correction_khz - stv0910.LowSrOffsetKHz(nim_config.symbol_rate)), nim_config.rf_input, nim_config.symbol_rate);
+                                        err = _stv6120.stv6120_init(2, (uint)((int)nim_config.frequency + nim_config.freq_correction_khz - _stv0910.LowSrOffsetKHz(nim_config.symbol_rate)), nim_config.rf_input, nim_config.symbol_rate);
                                     }
                                 }
                                 else

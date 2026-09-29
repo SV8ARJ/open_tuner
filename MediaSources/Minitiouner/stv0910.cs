@@ -204,8 +204,8 @@ namespace opentuner
 
         // Receiver options that differ between longmynd's table and MiniTioune (see MinitiounerSettings): carrier loop 1 phase detector
         // algorithm (CARCFG.PH_DET_ALGO, the table has 0x46 = citroen 2) and the I/Q swap after the ADCs (TNRCFG2.TUN_IQSWAP, the table has 0x02 = off).
-        public static byte CarrierPhaseAlgo = 2;
-        public static bool MiniTiouneInit = false;
+        public byte CarrierPhaseAlgo = 2;
+        public bool MiniTiouneInit = false;
 
         // Register values of MiniTioune's startup (I2C capture, before the first tune) that differ from our table for timing loop, carrier loop, FEC and
         // packet delineator settings: { register, value }. Written after our table when MiniTiouneInit is set. Not included: GPIO, TS output and status registers.
@@ -265,7 +265,7 @@ namespace opentuner
             new ushort[] { 0xFA56, 0x20 }, // GAINLLR_NF23 (table 0x26)
             new ushort[] { 0xFA86, 0x1E }, // GENCFG (table 0x15)
         };
-        public static bool IqSwap = false;
+        public bool IqSwap = false;
 
         private byte stv0910_apply_receiver_options()
         {
@@ -392,14 +392,14 @@ namespace opentuner
         // that is 65.9 kS, SFRINIT is clamped to it and a 25 kS signal is never found (measured: SFRINIT 0x0020, SFRUP 0x0024).
         // Below LowSrBelowKS the master clock is lowered to 30 MHz (minimum 14.6 kS), presumably what MiniTioune's "Low SR" does.
         // Both demodulators share the clock, so the other one is set up again when it changes.
-        public static uint MclkHz = 135000000;
-        public static bool AllowLowSrClock = true;
+        public uint MclkHz = 135000000;
+        public bool AllowLowSrClock = true;
         private const uint LowSrMclkHz = 41250000;   // 30 MHz * 11 / 2 / 4, as MiniTioune (I2C capture of its "Low SR" switch); 41.25 MHz / 2048 = 20.1 kS
         private const UInt32 LowSrBelowKS = 50;      // 20 / 25 / 33 kS; 66 kS and above keep the normal clock and setup
-        public static bool LowSrProfile = true;      // MiniTioune's demodulator setup for low symbol rates (see stv0910_setup_low_sr)
-        public static bool LowSrManualSfr = true;    // manual SFRUP / SFRLOW (+-5 %, TMGCFG3 = 0x00) in the low symbol rate profile; off = the chip's automatic window
-        public static bool LowSrSrScan = false;      // DMDCFGMD.SCAN_ENABLE in the low symbol rate profile: 0x8B fixed rate (default: 20 .. 125 kS lock with it), 0x9B scanning (pushed the SFR out of its window at 20 kS)
-        public static bool LowSrDvbS1 = false;       // keep DVB-S1 search enabled in the low symbol rate profile (MiniTioune: DVB-S2 only)
+        public bool LowSrProfile = true;      // MiniTioune's demodulator setup for low symbol rates (see stv0910_setup_low_sr)
+        public bool LowSrManualSfr = true;    // manual SFRUP / SFRLOW (+-5 %, TMGCFG3 = 0x00) in the low symbol rate profile; off = the chip's automatic window
+        public bool LowSrSrScan = false;      // DMDCFGMD.SCAN_ENABLE in the low symbol rate profile: 0x8B fixed rate (default: 20 .. 125 kS lock with it), 0x9B scanning (pushed the SFR out of its window at 20 kS)
+        public bool LowSrDvbS1 = false;       // keep DVB-S1 search enabled in the low symbol rate profile (MiniTioune: DVB-S2 only)
         private readonly int[] lowsr_offset_hz = new int[2];
         private readonly int[] lowsr_cfr_up = new int[2];       // CFRUP (register units) of the low symbol rate profile, written again after the state machine reset
         private readonly byte[] lowsr_dmdcfgmd = new byte[2];
@@ -407,7 +407,7 @@ namespace opentuner
 
         // The tuner is set this far below the wanted frequency for a low symbol rate (1.5 x SR): a narrow carrier at zero IF sits on the DC
         // offset loop of the tuner. The derotator then looks for the carrier at +1.5 x SR. Used for the tuner frequency and the CFR window.
-        public static int LowSrOffsetKHz(uint sr_kS)
+        public int LowSrOffsetKHz(uint sr_kS)
         {
             return (LowSrProfile && AllowLowSrClock && sr_kS < LowSrBelowKS) ? (int)Math.Round(1.5 * sr_kS) : 0;
         }
