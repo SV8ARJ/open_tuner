@@ -71,8 +71,7 @@ namespace opentuner.MediaSources.Longmynd
 
             if (_settings.DefaultInterface == 0)
             {
-                monitorWS?.Close();
-                controlWS?.Close();
+                CloseWebsockets();
             }
 
             udp_client?.Close();

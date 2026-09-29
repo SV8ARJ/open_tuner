@@ -17,6 +17,14 @@ namespace opentuner.MediaSources.Longmynd
         private WebSocket controlWS;        // longmynd control ws websocket
         private WebSocket monitorWS;        // longmynd monitor ws websocket
 
+        // Set by Close() so the OnClose handlers below stop reconnecting once the app is shutting
+        // down (issue #16) - otherwise our own Close() triggers yet another Connect().
+        private volatile bool _closing;
+
+        // Pause between reconnect attempts. A refused connection returns immediately, so without
+        // it an unreachable host would spin; a timing-out one (no route) already takes ~20 s.
+        private const int ReconnectDelayMs = 3000;
+
 
         public void WSSetTS(string ip, int port)
         {
@@ -31,6 +39,7 @@ namespace opentuner.MediaSources.Longmynd
 
         private void connectWebsockets()
         {
+            _closing = false;   // a re-connect after Close() must reconnect again
 
             string url = "ws://" + _settings.LongmyndWSHost + ":" + _settings.LongmyndWSPort.ToString() + "/ ";
 
@@ -72,16 +81,54 @@ namespace opentuner.MediaSources.Longmynd
 
         private void Controlws_OnClose(object sender, CloseEventArgs e)
         {
+            if (_closing)
+                return;
+
             debug("Error: Control WS Closed - Check WS IP");
-            debug("Attempting to reconnect...");
-            controlWS.Connect();
+            Reconnect(controlWS);
         }
 
         private void Monitorws_OnClose(object sender, CloseEventArgs e)
         {
+            if (_closing)
+                return;
+
             debug("Error: Monitor WS Closed - Check WS IP");
+            Reconnect(monitorWS);
+        }
+
+        // Reconnects in the background after a short pause: Connect() blocks until the attempt
+        // succeeds or times out, which must not happen on the WebSocket's own event thread.
+        private void Reconnect(WebSocket ws)
+        {
             debug("Attempting to reconnect...");
-            monitorWS.Connect();
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(ReconnectDelayMs);
+                    if (!_closing)
+                        ws.Connect();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("Longmynd WS reconnect failed: " + ex.Message);
+                }
+            });
+        }
+
+        // Closes both sockets off the UI thread: Close() waits for a connect attempt that is still
+        // in flight (up to ~20 s if the host is unreachable), which froze the window on exit.
+        private void CloseWebsockets()
+        {
+            _closing = true;
+            var monitor = monitorWS;
+            var control = controlWS;
+            Task.Run(() =>
+            {
+                try { monitor?.Close(); } catch (Exception ex) { Log.Warning("Longmynd monitor WS close failed: " + ex.Message); }
+                try { control?.Close(); } catch (Exception ex) { Log.Warning("Longmynd control WS close failed: " + ex.Message); }
+            });
         }
 
         private void Monitorws_OnMessage(object sender, MessageEventArgs e)

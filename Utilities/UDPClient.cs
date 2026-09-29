@@ -26,8 +26,20 @@ namespace opentuner.Utilities
 
         public int getID() { return _id; }  
 
+        // Stops the listener loop first, then closes the socket. Closing the socket under a running
+        // loop made udpClient.Available throw a NullReferenceException on every exit (issue #16) -
+        // caught and logged below, but noisy and it stops the debugger.
         public void Close()
         {
+            bool wasListening = isListening;
+            isListening = false;
+
+            // The thread only exists once Connect() started it; wait (max. 0.5 s) until it has left its loop.
+            for (int i = 0; wasListening && (i < 50) && !isStopped; i++)
+            {
+                Thread.Sleep(10);
+            }
+
             udpClient?.Close();
         }
 
