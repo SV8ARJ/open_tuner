@@ -684,22 +684,31 @@ namespace opentuner
 
                 Log.Information("* Closing Extra TS Threads");
 
+                // Every step is logged before and after, so a hang on exit shows where it stands (issue #34).
                 // close ts streamers
                 for (int c = 0; c < _ts_streamers.Count; c++)
                 {
+                    Log.Information("* Closing TS streamer " + c + "...");
                     _ts_streamers[c].Close();
+                    Log.Information("* TS streamer " + c + " closed");
                 }
 
                 // close ts recorders
                 for (int c = 0; c < _ts_recorders.Count; c++)
                 {
+                    Log.Information("* Closing TS recorder " + c + "...");
                     _ts_recorders[c].Close();
+                    Log.Information("* TS recorder " + c + " closed");
                 }
 
                 // close available media sources
                 for (int c = 0; c < _availableSources.Count; c++)
                 {
+                    string source_name = _availableSources[c].GetName();
+                    Log.Information("* Closing source " + source_name + "...");
+                    var close_sw = System.Diagnostics.Stopwatch.StartNew();
                     _availableSources[c].Close();
+                    Log.Information("* Source " + source_name + " closed in " + close_sw.ElapsedMilliseconds + " ms");
                 }
             }
             catch (Exception ex)

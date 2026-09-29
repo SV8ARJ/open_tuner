@@ -184,8 +184,15 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             SpectrumTuneTimer?.Stop();
             SpectrumTuneTimer?.Dispose();
             
-            // stop socket
-            web_socket?.stop();
+            // stop socket - not on the UI thread: WebSocket.Close() waits for the server and took up to 8 s with a
+            // connection that was not clean, which froze the window on exit (issue #34)
+            var socket_to_stop = web_socket;
+            if (socket_to_stop != null)
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try { socket_to_stop.stop(); }
+                    catch (Exception ex) { Log.Debug(ex, "BATC spectrum: closing the websocket failed"); }
+                });
         }
 
         private void websocketTimer_Tick(object sender, EventArgs e)

@@ -500,7 +500,28 @@ namespace opentuner.MediaSources.Minitiouner
             return Initialize(VideoChangeCB, SourceStatusCB, false, "", "", "", Parent);
         }
 
+        // Set when Close() starts: the NIM thread's status callbacks then return at once instead of marshalling
+        // to the UI thread, and Close() only pumps messages while one of them is still running (issue #34).
+        private volatile bool _closing = false;
+        private volatile bool _status_callback_active = false;
+
         public void nim_status_feedback(TunerStatus nim_status)
+        {
+            if (_closing)
+                return;
+
+            _status_callback_active = true;
+            try
+            {
+                HandleNimStatus(nim_status);
+            }
+            finally
+            {
+                _status_callback_active = false;
+            }
+        }
+
+        private void HandleNimStatus(TunerStatus nim_status)
         {
             _last_status = nim_status;
 
@@ -1055,20 +1076,89 @@ namespace opentuner.MediaSources.Minitiouner
             "Select FTDI or PicoTuner interface in Settings";
         }
 
+        // Processes at most maxMessages pending window messages of this thread and returns. Application.DoEvents() runs
+        // until the queue is empty and never returned when messages kept coming (issue #34); with the cap and the
+        // 5 s limit of the caller waiting for the NIM thread cannot hang any more.
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PumpMsg
+        {
+            public IntPtr hwnd;
+            public uint message;
+            public IntPtr wParam;
+            public IntPtr lParam;
+            public uint time;
+            public int pt_x;
+            public int pt_y;
+        }
+
+        [DllImport("user32.dll", EntryPoint = "PeekMessageW")]
+        private static extern bool PeekMessageNative(out PumpMsg msg, IntPtr hWnd, uint filterMin, uint filterMax, uint remove);
+
+        [DllImport("user32.dll")]
+        private static extern void PostQuitMessage(int exitCode);
+
+        [DllImport("user32.dll")]
+        private static extern bool TranslateMessage(ref PumpMsg msg);
+
+        [DllImport("user32.dll", EntryPoint = "DispatchMessageW")]
+        private static extern IntPtr DispatchMessageNative(ref PumpMsg msg);
+
+        private static void PumpMessages(int maxMessages)
+        {
+            const uint PM_REMOVE = 0x0001;
+            const uint WM_QUIT = 0x0012;
+
+            for (int i = 0; i < maxMessages; i++)
+            {
+                if (!PeekMessageNative(out PumpMsg msg, IntPtr.Zero, 0, 0, PM_REMOVE))
+                    return;
+
+                if (msg.message == WM_QUIT)
+                {
+                    PostQuitMessage((int)msg.wParam);   // not ours to swallow
+                    return;
+                }
+
+                TranslateMessage(ref msg);
+                DispatchMessageNative(ref msg);
+            }
+        }
+
+        private static void CloseStep(string name, Action action)
+        {
+            Log.Information("Close: " + name + "...");
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Close: " + name + " failed");
+            }
+            Log.Information("Close: " + name + " done in " + sw.ElapsedMilliseconds + " ms");
+        }
+
         public override void Close()
         {
-            _settingsManager.SaveSettings(_settings);
+            _closing = true;
+
+            // Every step is logged when it starts and when it ends, so a hang on exit shows where it stands (issue #34).
+            CloseStep("save settings", () => _settingsManager.SaveSettings(_settings));
 
             // Thread.Abort() doesn't exist on modern .NET (throws PlatformNotSupportedException,
             // which used to take the whole process down since these are foreground threads) -
             // signal each worker cooperatively instead and let it exit its own loop.
-            ts_parser_thread?.Stop();
-            ts_parser_thread2?.Stop();
+            CloseStep("stop TS parser threads", () =>
+            {
+                ts_parser_thread?.Stop();
+                ts_parser_thread2?.Stop();
+            });
             bool ts_thread_stopped = false;
-            ts_thread?.Stop(ref ts_thread_stopped);
+            CloseStep("stop TS thread 1", () => ts_thread?.Stop(ref ts_thread_stopped));
             bool ts_thread2_stopped = false;
-            ts_thread2?.Stop(ref ts_thread2_stopped);
-            nim_thread?.Stop();
+            CloseStep("stop TS thread 2", () => ts_thread2?.Stop(ref ts_thread2_stopped));
+            CloseStep("stop NIM thread (request)", () => nim_thread?.Stop());
 
             // Wait for NimThread to finish - WITH message pumping. This is the actual fix for
             // "Digole doesn't clear on exit" and the hang in Close(): NimThread runs
@@ -1084,13 +1174,48 @@ namespace opentuner.MediaSources.Minitiouner
             bool nim_thread_joined = true;
             if (nim_thread_t != null)
             {
+                Log.Information("Close: waiting for the NIM thread (alive=" + nim_thread_t.IsAlive + ")...");
                 var join_sw = System.Diagnostics.Stopwatch.StartNew();
+
+                // Reports the real state every 2 s from its own thread, so it also logs while the UI thread is stuck (issue #34)
+                bool wait_done = false;
+                var wait_reporter = new Thread(() =>
+                {
+                    for (int i = 0; i < 5 && !wait_done; i++)
+                    {
+                        Thread.Sleep(2000);
+                        if (!wait_done)
+                            Log.Warning("Close: still waiting for the NIM thread after " + join_sw.ElapsedMilliseconds + " ms: state=" + nim_thread_t.ThreadState
+                                + ", status callback active=" + _status_callback_active);
+                    }
+                });
+                wait_reporter.IsBackground = true;
+                wait_reporter.Start();
+                long next_report_ms = 1000;
                 while (!(nim_thread_joined = nim_thread_t.Join(10)))
                 {
                     if (join_sw.Elapsed > TimeSpan.FromSeconds(5))
                         break;
-                    Application.DoEvents();
+
+                    // Pump messages only while a status callback of the NIM thread is still running (it may wait for
+                    // the UI thread in Control.Invoke). Application.DoEvents() returns only when the message queue is
+                    // empty, so with a steady stream of messages (repaints, updates) it never returned and Close()
+                    // hung in it, with the NIM thread long gone (issue #34).
+                    if (_status_callback_active)
+                    {
+                        var events_sw = System.Diagnostics.Stopwatch.StartNew();
+                        PumpMessages(50);
+                        if (events_sw.ElapsedMilliseconds >= 100)
+                            Log.Warning("Close: pumping messages took " + events_sw.ElapsedMilliseconds + " ms while waiting for the NIM thread");
+                    }
+
+                    if (join_sw.ElapsedMilliseconds >= next_report_ms)
+                    {
+                        Log.Information("Close: still waiting for the NIM thread after " + join_sw.ElapsedMilliseconds + " ms (state=" + nim_thread_t.ThreadState + ")");
+                        next_report_ms += 1000;
+                    }
                 }
+                wait_done = true;
                 Log.Information("Nim Thread Join returned, joined=" + nim_thread_joined + ", waited=" + join_sw.ElapsedMilliseconds + "ms");
             }
 
@@ -1112,10 +1237,13 @@ namespace opentuner.MediaSources.Minitiouner
             }
             try
             {
-                hardware_interface?.hw_ts_led(0, false);
-                hardware_interface?.hw_ts_led(1, false);
-                hardware_interface?.hw_set_polarization_supply(0, false, false);
-                hardware_interface?.hw_set_polarization_supply(1, false, false);
+                CloseStep("switch off TS LEDs and LNB supply", () =>
+                {
+                    hardware_interface?.hw_ts_led(0, false);
+                    hardware_interface?.hw_ts_led(1, false);
+                    hardware_interface?.hw_set_polarization_supply(0, false, false);
+                    hardware_interface?.hw_set_polarization_supply(1, false, false);
+                });
             }
             finally
             {
@@ -1129,7 +1257,7 @@ namespace opentuner.MediaSources.Minitiouner
             // (that's just the persisted UI checkbox state for next connect) - this
             // unconditionally drives the physical pins off so nothing stays energized after
             // OpenTuner closes.
-            hardware_interface?.aux_gpio_write(0);
+            CloseStep("switch off EXTERN outputs", () => hardware_interface?.aux_gpio_write(0));
         }
 
         public override void ShowSettings()

@@ -121,6 +121,11 @@ namespace opentuner.MediaPlayers.FFMPEG
 
         public override void Close()
         {
+            // Release the stream first: MediaStream.Read waits for data until this is set, and the demuxer thread
+            // that sits in it would keep player.Dispose() waiting when the carrier is gone (issue #34).
+            if (media_stream != null)
+                media_stream.end = true;
+
             if (player != null)
             {
                 player.Dispose();

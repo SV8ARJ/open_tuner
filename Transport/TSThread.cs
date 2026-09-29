@@ -15,15 +15,17 @@ namespace opentuner
 
     public class TSThread
     {
-        private bool ts_build_queue = false;
+        // volatile: written by the UI thread (stop_ts / start_ts / Stop) and read by the worker thread and the other way
+        // round (worker_thread_stopped) - without it the JIT may keep a stale value in a loop (issue #34)
+        private volatile bool ts_build_queue = false;
         private List<CircularBuffer> registered_consumers = new List<CircularBuffer>();
         private FlushTS flush_ts_callback = null;
         private ReadTS read_ts_callback = null;
         private string identifier = "";
 
         private EventWaitHandle thread_wait_event_handle;
-        private bool worker_thread_stopped = false;
-        private bool shutdown_worker_thread = false;
+        private volatile bool worker_thread_stopped = false;
+        private volatile bool shutdown_worker_thread = false;
 
         // Buffer overflow events of the consumer queues (issue #19).
         public readonly TSHealth Health = new TSHealth();
@@ -80,17 +82,21 @@ namespace opentuner
 
         public void Stop(ref bool stopped)
         {
-            Log.Verbose("TS Thread: Stopping Worker Thread...");
+            Log.Information("TS Thread " + identifier + ": stopping worker thread...");
             ts_build_queue = false;
             shutdown_worker_thread = true;
             thread_wait_event_handle.Set(); // fire worker thread to handle stop event
 
-            int count = 10;
-            while (!worker_thread_stopped && count != 0)
+            // Wait for the worker thread, but not forever: this runs on the UI thread while the program closes. (The
+            // old loop never waited - Task.Delay was not awaited and its counter never counted down - and spun for as
+            // long as the worker did not report that it had stopped, issue #34.)
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (!worker_thread_stopped && sw.ElapsedMilliseconds < 1000)
             {
-                Task.Delay(100);    // delay to allow worker thread to stop
+                Thread.Sleep(10);
             }
             stopped = worker_thread_stopped;
+            Log.Information("TS Thread " + identifier + ": worker thread " + (stopped ? "stopped" : "DID NOT STOP within 1 s") + " (" + sw.ElapsedMilliseconds + " ms)");
         }
 
         public void worker_thread()
