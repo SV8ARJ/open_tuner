@@ -71,6 +71,7 @@ namespace opentuner.MediaSources.Minitiouner
             txtDigoleCallsign.Text = _settings.DigoleCallsign;
             txtDigoleLocator.Text = _settings.DigoleLocator;
             txtDigoleName.Text = _settings.DigoleName;
+            txtDigoleCallsignWidth.Text = _settings.DigoleCallsignCharWidth.ToString();
         }
 
         private void UpdateLnbControls()
@@ -115,6 +116,14 @@ namespace opentuner.MediaSources.Minitiouner
                 return;
             }
 
+            // character width of the big font of the Digole greeting (callsign), in pixels
+            byte call_width = 24;
+            if (!byte.TryParse(txtDigoleCallsignWidth.Text.Trim(), out call_width) || call_width < 8 || call_width > 60)
+            {
+                MessageBox.Show("Invalid callsign character width (8 .. 60 pixels)");
+                return;
+            }
+
             // reference error correction of the tuner in ppm (same range as the slider on the Special tab)
             double correction1 = 0, correction2 = 0;
             var invariant = System.Globalization.CultureInfo.InvariantCulture;
@@ -154,9 +163,14 @@ namespace opentuner.MediaSources.Minitiouner
             _settings.LnbSupplyControl = checkLnbControl.Checked;
             _settings.EnableDigoleDisplay = checkEnableDigole.Checked;
             _settings.DigoleI2cAddress = digoleAddress;
-            _settings.DigoleCallsign = txtDigoleCallsign.Text.Trim().ToUpperInvariant();
+            // spaces at the start or the end stay: the big font is proportional, so the callsign can be nudged into the middle
+            // with them (a text of spaces only is nothing)
+            _settings.DigoleCallsign = string.IsNullOrWhiteSpace(txtDigoleCallsign.Text)
+                ? ""
+                : txtDigoleCallsign.Text.TrimEnd('\r', '\n').ToUpperInvariant();
             _settings.DigoleLocator = txtDigoleLocator.Text.Trim().ToUpperInvariant();
             _settings.DigoleName = txtDigoleName.Text.Trim();
+            _settings.DigoleCallsignCharWidth = call_width;
 
             DialogResult = DialogResult.OK;
             Close();

@@ -60,6 +60,8 @@
             this.txtDigoleLocator = new System.Windows.Forms.TextBox();
             this.labelDigoleLocator = new System.Windows.Forms.Label();
             this.txtDigoleName = new System.Windows.Forms.TextBox();
+            this.labelDigoleCallsignWidth = new System.Windows.Forms.Label();
+            this.txtDigoleCallsignWidth = new System.Windows.Forms.TextBox();
             this.labelDigoleName = new System.Windows.Forms.Label();
             this.groupHardwareInterface.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -304,7 +306,7 @@
             // 
             // btnSave
             //
-            this.btnSave.Location = new System.Drawing.Point(353, 674);
+            this.btnSave.Location = new System.Drawing.Point(353, 707);
             this.btnSave.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(100, 28);
@@ -316,7 +318,7 @@
             // btnCancel
             //
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Location = new System.Drawing.Point(245, 674);
+            this.btnCancel.Location = new System.Drawing.Point(245, 707);
             this.btnCancel.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(100, 28);
@@ -327,6 +329,8 @@
             //
             // groupDigole
             //
+            this.groupDigole.Controls.Add(this.txtDigoleCallsignWidth);
+            this.groupDigole.Controls.Add(this.labelDigoleCallsignWidth);
             this.groupDigole.Controls.Add(this.txtDigoleName);
             this.groupDigole.Controls.Add(this.labelDigoleName);
             this.groupDigole.Controls.Add(this.txtDigoleLocator);
@@ -340,7 +344,7 @@
             this.groupDigole.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.groupDigole.Name = "groupDigole";
             this.groupDigole.Padding = new System.Windows.Forms.Padding(4, 4, 4, 4);
-            this.groupDigole.Size = new System.Drawing.Size(437, 200);
+            this.groupDigole.Size = new System.Drawing.Size(437, 233);
             this.groupDigole.TabIndex = 4;
             this.groupDigole.TabStop = false;
             this.groupDigole.Text = "Digole I2C Display (JP3 / I2C-NIM)";
@@ -428,13 +432,31 @@
             this.txtDigoleName.Size = new System.Drawing.Size(212, 22);
             this.txtDigoleName.TabIndex = 8;
             //
+            // labelDigoleCallsignWidth
+            //
+            this.labelDigoleCallsignWidth.AutoSize = true;
+            this.labelDigoleCallsignWidth.Location = new System.Drawing.Point(21, 200);
+            this.labelDigoleCallsignWidth.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelDigoleCallsignWidth.Name = "labelDigoleCallsignWidth";
+            this.labelDigoleCallsignWidth.Size = new System.Drawing.Size(150, 16);
+            this.labelDigoleCallsignWidth.TabIndex = 9;
+            this.labelDigoleCallsignWidth.Text = "Callsign char width (px):";
+            //
+            // txtDigoleCallsignWidth
+            //
+            this.txtDigoleCallsignWidth.Location = new System.Drawing.Point(179, 196);
+            this.txtDigoleCallsignWidth.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.txtDigoleCallsignWidth.Name = "txtDigoleCallsignWidth";
+            this.txtDigoleCallsignWidth.Size = new System.Drawing.Size(60, 22);
+            this.txtDigoleCallsignWidth.TabIndex = 10;
+            //
             // MinitiounerSettingsForm
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoSize = true;
             this.CancelButton = this.btnCancel;
-            this.ClientSize = new System.Drawing.Size(473, 714);
+            this.ClientSize = new System.Drawing.Size(473, 747);
             this.ControlBox = false;
             this.Controls.Add(this.groupDigole);
             this.Controls.Add(this.btnCancel);
@@ -468,6 +490,8 @@
         private System.Windows.Forms.TextBox txtDigoleLocator;
         private System.Windows.Forms.Label labelDigoleLocator;
         private System.Windows.Forms.TextBox txtDigoleName;
+        private System.Windows.Forms.Label labelDigoleCallsignWidth;
+        private System.Windows.Forms.TextBox txtDigoleCallsignWidth;
         private System.Windows.Forms.Label labelDigoleName;
 
         private System.Windows.Forms.GroupBox groupHardwareInterface;

@@ -70,6 +70,8 @@ namespace opentuner.MediaSources.Minitiouner
         // Optional extra lines for the Welcome/Final screens (empty = line not shown).
         public string DigoleLocator = "";   // Maidenhead locator, e.g. JN48
         public string DigoleName = "";      // operator name
+        // Width in pixels of one character of the big font of the greeting (callsign); the callsign is centered with it.
+        public byte DigoleCallsignCharWidth = 24;
 
         // EXTERN-0..7 LED outputs (AUX chip GPIO, MiniTiounerPro V2 only) - persisted so the
         // last state is restored on reconnect.

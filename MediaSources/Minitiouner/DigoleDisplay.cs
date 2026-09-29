@@ -149,7 +149,11 @@ namespace opentuner.MediaSources.Minitiouner
         private const int DisplayWidth = 160;
         private const byte FontMedium = 18;
         private const byte FontBig = 120;
-        private static int CharWidth(byte font) => font == FontMedium ? 9 : 24;
+        // Character width in pixels of the big font (callsign): only a guess so far, so it can be set (setting
+        // DigoleCallsignCharWidth) until the callsign is centered. The width of the medium font was measured.
+        public byte BigCharWidth { get; set; } = 24;
+
+        private int CharWidth(byte font) => font == FontMedium ? 9 : BigCharWidth;
 
         // Greeting screen shown before the first frequency is tuned on either channel, and
         // again on shutdown instead of a blank Clear() - so the display always shows something
@@ -181,13 +185,23 @@ namespace opentuner.MediaSources.Minitiouner
 
         // Sets font `font`, then draws `text` horizontally centred with its bottom edge at pixel row y
         // (skipped if empty).
-        private static void AddCentered(System.Collections.Generic.List<byte> cmd, byte font, byte y, string text)
+        private void AddCentered(System.Collections.Generic.List<byte> cmd, byte font, byte y, string text)
         {
             text = ToAscii(text);
             if (string.IsNullOrEmpty(text))
                 return;
 
-            int x = Math.Max(0, (DisplayWidth - text.Length * CharWidth(font)) / 2);
+            // Spaces at the start or the end are not drawn (the display ignores a leading space, or the font has none of any
+            // width): each one moves the text by half a character width instead - a leading space to the right, a trailing
+            // one to the left - so a callsign can be nudged into the middle by hand.
+            int leading = text.Length - text.TrimStart(' ').Length;
+            int trailing = text.Length - text.TrimEnd(' ').Length;
+            text = text.Trim(' ');
+            if (text.Length == 0)
+                return;
+
+            int shift = (leading - trailing) * CharWidth(font) / 2;
+            int x = Math.Min(DisplayWidth - 1, Math.Max(0, (DisplayWidth - text.Length * CharWidth(font)) / 2 + shift));
             AddCmd(cmd, "SF", font);
             AddText(cmd, "ETP", (byte)x, y, text);
         }
