@@ -125,7 +125,7 @@ namespace opentuner.MediaSources.Minitiouner
 
             _settings.CaptureRangeKHz[device] = capture_range;
             _settings.FreqCorrectionPpm[device] = correction_ppm;
-            _settingsManager.SaveSettings(_settings);
+            SaveSettingsFiles();
 
             if (device == 0)
                 change_frequency(0, current_frequency_0, current_sr_0, current_rf_input_0, current_tone_22kHz_0, current_lnba_psu, current_lnbb_psu);
@@ -146,7 +146,7 @@ namespace opentuner.MediaSources.Minitiouner
             _settings.DefaultLnbBSupply = current_lnbb_psu;
             _settings.Tone22kHz[0] = current_tone_22kHz_0;
             _settings.Tone22kHz[1] = current_tone_22kHz_1;
-            _settingsManager.SaveSettings(_settings);
+            SaveSettingsFiles();
         }
 
         // tuner specific
@@ -200,6 +200,62 @@ namespace opentuner.MediaSources.Minitiouner
         public string HardwareDevice { get; set; }
 
         private SettingsManager<MinitiounerSettings> _settingsManager;
+
+        // Settings per board (#29): every board keeps its values in minitiouner_settings_<chip serial>.json. The general
+        // file minitiouner_settings.json stays (interface choice, PreferredBoardSerial, and the values of the board used
+        // last - a board that has no file yet starts from them).
+        private SettingsManager<MinitiounerSettings> _board_settings_manager;
+
+        // read once at startup from the general file and not taken from a board file
+        private static readonly string[] GeneralSettingFields = { "DefaultInterface", "PreferredBoardSerial" };
+
+        private void LoadBoardSettings(string chip_serial)
+        {
+            if (string.IsNullOrWhiteSpace(chip_serial))
+                return;
+
+            string safe_serial = new string(chip_serial.Where(c => char.IsLetterOrDigit(c)).ToArray());
+            if (safe_serial.Length == 0)
+                return;
+
+            string name = "minitiouner_settings_" + safe_serial;
+            string path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings", name + ".json");
+            bool existed = System.IO.File.Exists(path);
+
+            var manager = new SettingsManager<MinitiounerSettings>(name);
+            try
+            {
+                if (existed)
+                {
+                    var board_settings = manager.LoadSettings(new MinitiounerSettings());
+                    foreach (var field in typeof(MinitiounerSettings).GetFields())
+                    {
+                        if (Array.IndexOf(GeneralSettingFields, field.Name) >= 0)
+                            continue;
+                        field.SetValue(_settings, field.GetValue(board_settings));
+                    }
+                    Log.Information("Board settings: loaded " + name + ".json");
+                }
+                else
+                {
+                    // first use of this board: it takes over the values used so far
+                    manager.SaveSettings(_settings);
+                    Log.Information("Board settings: no file for board " + safe_serial + " yet, created " + name + ".json from the current settings");
+                }
+                _board_settings_manager = manager;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Board settings: " + name + ".json could not be used, keeping the general settings");
+            }
+        }
+
+        // the general file and the file of the board in use
+        private void SaveSettingsFiles()
+        {
+            _settingsManager.SaveSettings(_settings);
+            _board_settings_manager?.SaveSettings(_settings);
+        }
         private MinitiounerSettings _settings;
 
         public MinitiounerSource() 
@@ -655,6 +711,9 @@ namespace opentuner.MediaSources.Minitiouner
                 MessageBox.Show("Error: No Working Hardware Detected");
                 return -1;
             }
+
+            // the settings of the board that was found (before anything reads them)
+            LoadBoardSettings((hardware_interface as FTDIInterface)?.SelectedBoard?.ChipSerials.FirstOrDefault());
 
             // build properties
             _parent = Parent;
@@ -1145,7 +1204,7 @@ namespace opentuner.MediaSources.Minitiouner
             _closing = true;
 
             // Every step is logged when it starts and when it ends, so a hang on exit shows where it stands (issue #34).
-            CloseStep("save settings", () => _settingsManager.SaveSettings(_settings));
+            CloseStep("save settings", () => SaveSettingsFiles());
 
             // Thread.Abort() doesn't exist on modern .NET (throws PlatformNotSupportedException,
             // which used to take the whole process down since these are foreground threads) -
@@ -1263,10 +1322,28 @@ namespace opentuner.MediaSources.Minitiouner
 
         public override void ShowSettings()
         {
+            // Not connected yet: the board is not known, so the values shown (and saved) would only reach the general file
+            // and the file of the board would overwrite them at the next connect. Find the board the same way the connect
+            // does (from the USB device list, nothing is opened) and work on its settings.
+            if (_board_settings_manager == null && !hardware_connected)
+            {
+                try
+                {
+                    var devices = HardwareInfo.EnumerateFtdiDevices(out string list_error);
+                    var boards = BoardDetection.Detect(devices, new List<string>());
+                    var board = BoardDetection.Select(boards, _settings.PreferredBoardSerial);
+                    LoadBoardSettings(board?.ChipSerials.FirstOrDefault());
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Board settings: could not find the board before connecting, using the general settings");
+                }
+            }
+
             MinitiounerSettingsForm settings_form = new MinitiounerSettingsForm(ref _settings);
             if (settings_form.ShowDialog() == DialogResult.OK) 
             {
-                _settingsManager.SaveSettings(_settings);
+                SaveSettingsFiles();
                 // Digole text can be applied live; other settings (interface, offsets, LNB defaults,
                 // Digole enable/address) are read on connect and need a reconnect.
                 nim_thread?.UpdateDigoleIdentity(_settings.DigoleCallsign, _settings.DigoleLocator, _settings.DigoleName); 

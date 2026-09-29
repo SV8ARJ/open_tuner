@@ -822,6 +822,9 @@ namespace opentuner
         // the Hardware Info window.
         public string DetectionSummary { get; private set; } = "";
 
+        // The board the last detection selected (null if none): its chip serial numbers identify it, e.g. for its settings file
+        public MiniTiounerBoard SelectedBoard { get; private set; }
+
         // Chip serial number of the board to use when several boards are connected ("" = automatic:
         // most TS streams first). From the Minitiouner settings.
         public string PreferredBoardSerial { get; set; } = "";
@@ -865,6 +868,7 @@ namespace opentuner
                 Log.Warning("FTDI board detection: " + w);
 
             var board = BoardDetection.Select(boards, PreferredBoardSerial);
+            SelectedBoard = board;
 
             var summary = new StringBuilder();
             summary.Append(boards.Count + " board(s) found");
