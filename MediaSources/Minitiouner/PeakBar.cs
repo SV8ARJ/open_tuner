@@ -72,13 +72,29 @@ namespace opentuner.MediaSources.Minitiouner
             }
         }
 
+        // In a narrow control the title and the value would run into each other: then the value is written on a second
+        // line, right aligned, and the bar / plot moves down; PreferredHeight tells the row that holds the bars.
+        private bool _wrapped = false;
+        public int PreferredHeight => _wrapped ? 58 : 44;
+        public event EventHandler PreferredHeightChanged;
+
+        private void UpdateWrap(Graphics g, Font title_font, Font text_font, float available, string widest_value)
+        {
+            bool wrapped = g.MeasureString(_title, title_font).Width + g.MeasureString(widest_value, text_font).Width + 8 > available;
+            if (wrapped == _wrapped)
+                return;
+
+            _wrapped = wrapped;
+            if (IsHandleCreated && !IsDisposed)
+                BeginInvoke((MethodInvoker)(() => PreferredHeightChanged?.Invoke(this, EventArgs.Empty)));
+        }
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
             g.Clear(BackColor);
 
             const int margin = 6;
-            const int bar_top = 18;
+            int bar_top = _wrapped ? 32 : 18;
             const int bar_height = 10;
             float x0 = margin;
             float x1 = Width - margin;
@@ -90,6 +106,7 @@ namespace opentuner.MediaSources.Minitiouner
             using (var brush = new SolidBrush(Color.Black))
             using (var right = new StringFormat { Alignment = StringAlignment.Far })
             {
+                UpdateWrap(g, title_font, text_font, x1 - x0, "999 (max 999)" + _unit);
                 g.DrawString(_title, title_font, brush, x0, 2);
 
                 using (var back = new SolidBrush(Color.White))
@@ -120,7 +137,7 @@ namespace opentuner.MediaSources.Minitiouner
                 using (var marker = new Pen(Color.Red, 2f))
                     g.DrawLine(marker, peak_x, bar_top - 3, peak_x, bar_top + bar_height + 3);
 
-                g.DrawString(_value + _unit + " (max " + _peak + _unit + ")", text_font, brush, new RectangleF(x0, 2, x1 - x0, 14), right);
+                g.DrawString(_value + _unit + " (max " + _peak + _unit + ")", text_font, brush, new RectangleF(x0, _wrapped ? 16 : 2, x1 - x0, 14), right);
             }
         }
     }

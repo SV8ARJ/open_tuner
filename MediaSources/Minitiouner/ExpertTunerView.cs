@@ -165,6 +165,16 @@ namespace opentuner.MediaSources.Minitiouner
             ldpc_row.Controls.Add(_ldpc_errors_bar, 1, 0);
             tips.SetToolTip(_noise_bar, "Noise amplitude relative to the signal amplitude (lower is better): NNOSPLHT (measured on PLHeader and pilots) in DVB-S2, NNOSDATAT (measured on the data) in DVB-S; 0x4000 = 100 % = noise as strong as the signal. Trace of the last ~30 s, the vertical scale follows its minimum and maximum (shown in brackets). The chip filters this value heavily, so it moves slowly");
             ldpc_row.Controls.Add(_noise_bar, 2, 0);
+
+            // A bar that is too narrow for title and value puts the value on a second line and needs more height: the
+            // row follows the highest of the three, everything below it moves down and the group grows with it.
+            Action fit_ldpc_row = () =>
+                ldpc_row.Height = Math.Max(_ldpc_bar.PreferredHeight, Math.Max(_ldpc_errors_bar.PreferredHeight, _noise_bar.PreferredHeight));
+            _ldpc_bar.PreferredHeightChanged += (s, e) => fit_ldpc_row();
+            _ldpc_errors_bar.PreferredHeightChanged += (s, e) => fit_ldpc_row();
+            _noise_bar.PreferredHeightChanged += (s, e) => fit_ldpc_row();
+            ldpc_row.SizeChanged += (s, e) => FitHeight();
+
             _group.Controls.Add(ldpc_row);
 
             // Lock Time (left) and Refresh Time of the status polling (right, the same for both tuners) share one row

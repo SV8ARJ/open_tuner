@@ -60,13 +60,29 @@ namespace opentuner.MediaSources.Minitiouner
             }
         }
 
+        // In a narrow control the title and the value would run into each other: then the value is written on a second
+        // line, right aligned, and the bar / plot moves down; PreferredHeight tells the row that holds the bars.
+        private bool _wrapped = false;
+        public int PreferredHeight => _wrapped ? 58 : 44;
+        public event EventHandler PreferredHeightChanged;
+
+        private void UpdateWrap(Graphics g, Font title_font, Font text_font, float available, string widest_value)
+        {
+            bool wrapped = g.MeasureString(_title, title_font).Width + g.MeasureString(widest_value, text_font).Width + 8 > available;
+            if (wrapped == _wrapped)
+                return;
+
+            _wrapped = wrapped;
+            if (IsHandleCreated && !IsDisposed)
+                BeginInvoke((MethodInvoker)(() => PreferredHeightChanged?.Invoke(this, EventArgs.Empty)));
+        }
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
             g.Clear(BackColor);
 
             const int margin = 6;
-            const int plot_top = 18;
+            int plot_top = _wrapped ? 32 : 18;
             float x0 = margin;
             float x1 = Width - margin;
             float plot_height = Height - plot_top - 3;
@@ -86,6 +102,7 @@ namespace opentuner.MediaSources.Minitiouner
             using (var brush = new SolidBrush(Color.Black))
             using (var right = new StringFormat { Alignment = StringAlignment.Far })
             {
+                UpdateWrap(g, title_font, text_font, x1 - x0, "99.9" + _unit + "  (99.9 - 99.9)");
                 g.DrawString(_title, title_font, brush, x0, 2);
 
                 using (var back = new SolidBrush(Color.White))
@@ -129,7 +146,7 @@ namespace opentuner.MediaSources.Minitiouner
                     g.FillEllipse(dot, ToX(samples.Length - 1) - 2, ToY(samples[samples.Length - 1]) - 2, 4, 4);
 
                 g.DrawString(samples[samples.Length - 1].ToString("N1") + _unit + "  (" + min.ToString("N1") + " - " + max.ToString("N1") + ")",
-                             text_font, brush, new RectangleF(x0, 2, x1 - x0, 14), right);
+                             text_font, brush, new RectangleF(x0, _wrapped ? 16 : 2, x1 - x0, 14), right);
             }
         }
     }
