@@ -663,6 +663,7 @@ namespace opentuner.MediaSources.WinterHill
                     source_data.service_name = rx.service_name;
                     source_data.demode_state = scanstate_lookup[rx.scanstate];
                     source_data.modcode = rx.modcod.ToString();
+                    source_data.video_codec = last_video_codec[c];
 
                     if (_media_player.Count() > c)
                     {

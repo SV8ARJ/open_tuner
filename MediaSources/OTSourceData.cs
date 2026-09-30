@@ -11,6 +11,7 @@
         public int symbol_rate = 0;
         public string service_name = "";
         public string modcode = "";
+        public string video_codec = "";   // as the media player reports it, see MediaStatus.CodecDisplayName
         public int volume = 0;
         public bool streaming = false;
         public bool recording = false;

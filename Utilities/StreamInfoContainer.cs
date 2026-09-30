@@ -85,6 +85,11 @@ namespace opentuner.Utilities
                 info = "MER: " + last_info_data.mer.ToString("F1") + " dB";
             }
             info = info + " - " + last_info_data.frequency.ToString("N0", CultureInfo.CurrentCulture);
+            string codec = MediaStatus.CodecDisplayName(last_info_data.video_codec);
+            if (codec.Length > 0)
+            {
+                info = info + " - " + codec;
+            }
             info = info + " - " + last_info_data.symbol_rate.ToString();
             if (last_info_data.demod_locked && !string.IsNullOrEmpty(last_info_data.modcode))
             {
