@@ -802,6 +802,49 @@ namespace opentuner
             videoSource.SetFrequencyFromSpectrum(Receiver, Freq, SymbolRate);
         }
 
+        // Right click in the signal area of the spectrum: tune the tuner of that row to the frequency and show the
+        // tab with its symbol rate buttons and fine tuning, where the rate can be corrected. The rate is that of the
+        // signal under the mouse; without a signal it stays the one the tuner has.
+        private void Batc_spectrum_OnSpectrumRightClick(int Receiver, uint Freq, uint SignalSymbolRate)
+        {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new MethodInvoker(() => Batc_spectrum_OnSpectrumRightClick(Receiver, Freq, SignalSymbolRate)));
+                return;
+            }
+
+            if (videoSource == null || Receiver >= videoSource.GetVideoSourceCount())
+                return;
+
+            // a detected signal brings its rate (like a left click); the rate of the tuner only stays if there is no
+            // signal under the mouse (narrow signals are often not detected)
+            uint symbol_rate = SignalSymbolRate;
+            if (symbol_rate == 0)
+                symbol_rate = videoSource.GetSymbolRate(Receiver);
+
+            if (symbol_rate == 0)
+            {
+                Log.Information("Spectrum right click: no symbol rate known for tuner " + (Receiver + 1));
+                return;
+            }
+
+            videoSource.SetFrequency(Receiver, Freq, symbol_rate, true);
+            batc_spectrum?.MarkTuner(Receiver, Freq, symbol_rate);
+
+            string tab_title = videoSource.GetSpecialTabTitle(Receiver);
+            if (tab_title == null)
+                return;
+
+            foreach (TabPage page in tabControl1.TabPages)
+            {
+                if (page.Text == tab_title)
+                {
+                    tabControl1.SelectedTab = page;
+                    break;
+                }
+            }
+        }
+
 
         private void quitToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -1361,6 +1404,7 @@ namespace opentuner
                 {
                     batc_spectrum = new BATCSpectrum(spectrum, videoSource.GetVideoSourceCount());
                     batc_spectrum.OnSignalSelected += Batc_spectrum_OnSignalSelected;
+                    batc_spectrum.OnSpectrumRightClick += Batc_spectrum_OnSpectrumRightClick;
                 });
             }
 

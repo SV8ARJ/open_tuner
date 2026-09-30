@@ -317,6 +317,16 @@ namespace opentuner.MediaSources.Minitiouner
         }
 
 
+        public override uint GetSymbolRate(int device)
+        {
+            return device == 0 ? current_sr_0 : (device == 1 ? current_sr_1 : 0);
+        }
+
+        public override string GetSpecialTabTitle(int device)
+        {
+            return _frequency_panel != null ? "Special" : null;
+        }
+
         public override long GetFrequency(int device, bool offset_included)
         {
             long frequency = 0;

@@ -21,6 +21,10 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
 
         public event SignalSelected OnSignalSelected;
 
+        // right click in the signal area: tuner of the clicked row, frequency in kHz (centre of the signal under the
+        // mouse, else the frequency of the mouse position) and symbol rate of that signal (kS, 0 if there is none)
+        public event SignalSelected OnSpectrumRightClick;
+
         private static readonly Object list_lock = new Object();
 
         static int height = 255;    //makes things easier
@@ -499,7 +503,10 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                 // manual tuning: right click on a bandplan channel tunes to its frequency with the
                 // symbol rate of the bar (A 1000, B 333, C 125 kS, from bandplan.xml). Works without
                 // spectrum data, so it is also usable while the spectrum server is down.
-                tuneBandplanChannel(X, Y);
+                if (find_bandplan_channel(X, Y) >= 0)
+                    tuneBandplanChannel(X, Y);
+                else if (Y <= height - bandplan_height)
+                    rightClickSignalArea(X, Y);
             }
             else
             {
@@ -508,6 +515,51 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
 
         }
 
+
+        // right click in the signal area (above the bandplan): the tuner of the clicked RX row is tuned to the signal
+        // under the mouse, or to the frequency of the mouse position if there is none (narrow signals of 20 / 25 kS
+        // are often not detected); the caller picks the symbol rate and opens the tab of the tuner
+        private void rightClickSignalArea(int X, int Y)
+        {
+            float spectrum_wScale = _spectrum.Width / 922f;
+            float bin = X / spectrum_wScale;
+            int rx = Math.Min(determine_rx(Y), _tuners - 1);
+
+            double freq_mhz = start_freq + ((bin + 1) / 922.0) * 9.0;   // same as detect_signals
+            uint signal_sr = 0;
+
+            try
+            {
+                foreach (signal.Sig s in sigs.signals)
+                {
+                    if (bin > s.fft_start & bin < s.fft_stop)
+                    {
+                        freq_mhz = s.frequency;
+                        signal_sr = Convert.ToUInt32(s.sr * 1000.0);
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "BATC spectrum: right click failed");
+            }
+
+            uint freq = Convert.ToUInt32(freq_mhz * 1000.0);   // kHz
+            debug("Spectrum right click - RX: " + rx + " Freq: " + freq + " SR: " + signal_sr);
+
+            OnSpectrumRightClick?.Invoke(rx, freq, signal_sr);
+        }
+
+        // grey block of a tuner in the spectrum (frequency in kHz, symbol rate in kS), for a tuning done outside of it
+        public void MarkTuner(int rx, uint freq_khz, uint sr_ks)
+        {
+            if (rx < 0 || rx >= 4)
+                return;
+
+            rx_blocks[rx, 0] = Convert.ToInt16(((freq_khz / 1000.0 - start_freq) / 9.0) * 922.0);
+            rx_blocks[rx, 1] = Convert.ToInt16(sr_ks / 1000.0 / 9.0 * 922.0 * 1.35);
+        }
 
         // quick tune functions - From https://github.com/m0dts/QO-100-WB-Live-Tune - Rob Swinbank
 
@@ -653,9 +705,8 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
 
                 debug("Bandplan tune - RX: " + rx.ToString() + " Freq: " + freq.ToString() + " SR: " + sr.ToString());
 
-                // grey block for the selected channel, same units as selectSignal (FFT bins)
-                rx_blocks[rx, 0] = Convert.ToInt16(((freq_mhz - start_freq) / 9.0) * 922.0);
-                rx_blocks[rx, 1] = Convert.ToInt16(sr_ks / 1000.0 / 9.0 * 922.0 * 1.35);
+                // grey block for the selected channel
+                MarkTuner(rx, freq, sr);
 
                 OnSignalSelected?.Invoke(rx, freq, sr);
             }

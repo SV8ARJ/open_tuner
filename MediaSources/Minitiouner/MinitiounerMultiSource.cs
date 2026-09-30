@@ -191,6 +191,24 @@ namespace opentuner.MediaSources.Minitiouner
                 board.SetFrequencyFromSpectrum(local, frequency, symbol_rate);
         }
 
+        public override uint GetSymbolRate(int device)
+        {
+            return Resolve(device, out var board, out int local) ? board.GetSymbolRate(local) : 0;
+        }
+
+        // "Special" with one board, "Special-Pro" / "Special-V2" with several (see GetExtraTabs)
+        public override string GetSpecialTabTitle(int device)
+        {
+            if (!Resolve(device, out var board, out int local))
+                return null;
+
+            string title = board.GetSpecialTabTitle(local);
+            if (title == null || _boards.Count == 1)
+                return title;
+
+            return title + "-" + BoardLabel(_boards.IndexOf(board));
+        }
+
         public override long GetFrequency(int device, bool offset_included)
         {
             return Resolve(device, out var board, out int local) ? board.GetFrequency(local, offset_included) : 0;

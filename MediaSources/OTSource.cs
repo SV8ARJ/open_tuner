@@ -47,6 +47,13 @@ namespace opentuner.MediaSources
         }
         public abstract long GetFrequency(int device, bool offset_included);
 
+        // Symbol rate (kS) the tuner is set to, 0 if the source does not know it.
+        public virtual uint GetSymbolRate(int device) { return 0; }
+
+        // Title of the extra tab with the symbol rate buttons and the fine tuning of that tuner ("Special"), null if the
+        // source has none.
+        public virtual string GetSpecialTabTitle(int device) { return null; }
+
         public abstract int GetVolume(int device);
         public abstract void UpdateVolume(int device, int volume_delta);
         public abstract void ToggleMute(int device);
