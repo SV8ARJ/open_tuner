@@ -457,6 +457,63 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             }
         }
 
+        // the tuner row whose label ("RX n" and the mode text under it, at the left of the row) is at this point, -1 if none
+        private int TuneModeLabelRow(int X, int Y)
+        {
+            const int LabelWidth = 150;     // the widest text is "Auto (Timed), no beacon"
+            const int LabelHeight = 44;     // RX n, mode text
+
+            int tuners = Math.Min(_tuners, tuner_state.Length);
+            if (X > LabelWidth || tuners <= 0)
+                return -1;
+
+            int rx = determine_rx(Y);
+            if (rx < 0 || rx >= tuners)
+                return -1;
+
+            int row_top = rx * ((_spectrum.Height - bandplan_height) / _tuners);
+            return Y - row_top <= LabelHeight ? rx : -1;
+        }
+
+        // right click on the label: the four tuning modes, the current one ticked; stored in the settings at once
+        private void ShowTuneModeMenu(int rx, int X, int Y)
+        {
+            if (QuickTuneActive)
+                return;
+
+            string[] names = { "Manual", "Auto (Hold)", "Auto (Next new)", "Auto (Timed)" };
+
+            var menu = new ContextMenuStrip();
+            menu.Items.Add(new ToolStripLabel("RX " + (rx + 1).ToString() + " tuning mode"));
+            menu.Items.Add(new ToolStripSeparator());
+
+            for (int mode = 0; mode < names.Length; mode++)
+            {
+                int selected_mode = mode;
+                var item = new ToolStripMenuItem(names[mode]);
+                item.Checked = spectrumSettings.tuneMode[rx] == mode;
+                item.Click += (s, e) => SetTuneMode(rx, selected_mode);
+                menu.Items.Add(item);
+            }
+
+            menu.Closed += (s, e) => _spectrum.BeginInvoke(new MethodInvoker(menu.Dispose)); // after the item click ran
+            menu.Show(_spectrum, new Point(X, Y));
+        }
+
+        // the mode of a tuner is changed and stored, like the middle click dialog does (Avoid Beacon stays as it is)
+        private void SetTuneMode(int rx, int mode)
+        {
+            int old_mode = spectrumSettings.tuneMode[rx];
+            if (old_mode == mode)
+                return;
+
+            spectrumSettings.tuneMode[rx] = mode;
+            NoteModeChange(rx, old_mode);
+
+            if (!spectrumSettingsManager.SaveSettings(spectrumSettings))
+                Log.Warning("BATC spectrum: the settings could not be saved");
+        }
+
         // middle click: small dialog for the tuning mode of the tuner of the clicked row
         private void ShowTuneModeDialog(int X, int Y)
         {
@@ -762,7 +819,14 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                 if (find_bandplan_channel(X, Y) >= 0)
                     tuneBandplanChannel(X, Y);
                 else if (Y <= height - bandplan_height)
-                    rightClickSignalArea(X, Y);
+                {
+                    // the label of a tuner row ("RX n", its mode) opens the menu of the tuning modes
+                    int label_rx = TuneModeLabelRow(X, Y);
+                    if (label_rx >= 0)
+                        ShowTuneModeMenu(label_rx, X, Y);
+                    else
+                        rightClickSignalArea(X, Y);
+                }
             }
             else if (me.Button == MouseButtons.Middle)
             {

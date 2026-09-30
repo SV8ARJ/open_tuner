@@ -46,6 +46,7 @@
             this.labelRx1 = new System.Windows.Forms.Label();
             this.btnCancel = new System.Windows.Forms.Button();
             this.btnSave = new System.Windows.Forms.Button();
+            this.textModeHelp = new System.Windows.Forms.TextBox();
             this.groupOverpowerLayout = new System.Windows.Forms.GroupBox();
             this.overPowerIndicatorLayout = new System.Windows.Forms.ComboBox();
             this.labelOverpowerLimit = new System.Windows.Forms.Label();
@@ -310,6 +311,19 @@
             this.btnSave.UseVisualStyleBackColor = true;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
+            // textModeHelp
+            // 
+            this.textModeHelp.BackColor = System.Drawing.SystemColors.Window;
+            this.textModeHelp.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
+            this.textModeHelp.Location = new System.Drawing.Point(335, 15);
+            this.textModeHelp.Multiline = true;
+            this.textModeHelp.Name = "textModeHelp";
+            this.textModeHelp.ReadOnly = true;
+            this.textModeHelp.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            this.textModeHelp.Size = new System.Drawing.Size(345, 378);
+            this.textModeHelp.TabIndex = 7;
+            this.textModeHelp.TabStop = false;
+            // 
             // groupOverpowerLayout
             // 
             this.groupOverpowerLayout.Controls.Add(this.overPowerIndicatorLayout);
@@ -467,8 +481,9 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(335, 403);
+            this.ClientSize = new System.Drawing.Size(695, 403);
             this.ControlBox = false;
+            this.Controls.Add(this.textModeHelp);
             this.Controls.Add(this.groupTimer);
             this.Controls.Add(this.groupOverpowerLayout);
             this.Controls.Add(this.groupTuningMode);
@@ -509,6 +524,7 @@
         private System.Windows.Forms.CheckBox avoidBeacon4;
         private System.Windows.Forms.Button btnCancel;
         private System.Windows.Forms.Button btnSave;
+        private System.Windows.Forms.TextBox textModeHelp;
         private System.Windows.Forms.GroupBox groupOverpowerLayout;
         private System.Windows.Forms.ComboBox overPowerIndicatorLayout;
         private System.Windows.Forms.Label labelOverpowerLimit;
