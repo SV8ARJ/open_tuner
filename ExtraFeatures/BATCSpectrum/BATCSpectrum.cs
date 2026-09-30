@@ -370,7 +370,9 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                 //draw the text for each signal found
                 foreach (signal.Sig s in signals)
                 {
-                    tmp.DrawString(s.callsign + "\n" + s.frequency.ToString("#.00") + "\n " + (s.sr * 1000).ToString("#kS"), new Font("Tahoma", 10), Brushes.White, new PointF(Convert.ToSingle((s.fft_centre * spectrum_wScale) - (25)), (255 - Convert.ToSingle(s.fft_strength + 50))));
+                    string dbb_line = float.IsNaN(s.dbb) ? "" : "\n " + s.dbb.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "dBb";
+
+                    tmp.DrawString(s.callsign + "\n" + s.frequency.ToString("#.00") + "\n " + (s.sr * 1000).ToString("#kS") + dbb_line, new Font("Tahoma", 10), Brushes.White, new PointF(Convert.ToSingle((s.fft_centre * spectrum_wScale) - (25)), (255 - Convert.ToSingle(s.fft_strength + 50) - (dbb_line.Length > 0 ? 14 : 0))));
                 }
             }
 

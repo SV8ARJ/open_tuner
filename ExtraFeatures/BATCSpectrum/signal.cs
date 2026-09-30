@@ -402,6 +402,17 @@ namespace opentuner
             }
         }
 
+        // Signal strength in dB relative to the beacon (dBb), NaN as long as no beacon has been seen.
+        // Formula by DL1RF, the QO-100 wideband web site's calculation without its canvas height:
+        // a 15 dB window spans ((7/8) - (1/12)) of the height, i.e. 0.052778 per dB at height 1.
+        public float CalcDbb(int strength_signal)
+        {
+            if (beacon_strength <= 0)
+                return float.NaN;
+
+            return (strength_signal - beacon_strength) / 65536.0f / 0.052778f;
+        }
+
         public bool isOverPower(int beacon_strength, int signal_strength, float signal_bw)
         {
             if (beacon_strength != 0)
@@ -512,7 +523,7 @@ namespace opentuner
                                 if (signal_freq < 10492000 && signal_bw > 1.0)
                                 {
                                     beacon_strength = strength_signal;
-                                    signals.Add(new Sig(start_signal, end_signal, Convert.ToInt32(mid_signal), strength_signal / 255, signal_freq, signal_bw, false, 0));
+                                    signals.Add(new Sig(start_signal, end_signal, Convert.ToInt32(mid_signal), strength_signal / 255, signal_freq, signal_bw, false, float.NaN));
                                 }
                                 else
                                 {
@@ -521,7 +532,7 @@ namespace opentuner
                                     if (isOverPower(beacon_strength, strength_signal, signal_bw))
                                         overpower = true;
 
-                                    signals.Add(new Sig(start_signal, end_signal, Convert.ToInt32(mid_signal), strength_signal / 255, signal_freq, signal_bw, overpower, 0));
+                                    signals.Add(new Sig(start_signal, end_signal, Convert.ToInt32(mid_signal), strength_signal / 255, signal_freq, signal_bw, overpower, CalcDbb(strength_signal)));
                                 }
                             }
 
