@@ -658,6 +658,9 @@ namespace opentuner
                 if (batc_chat != null)
                     batc_chat.Close();
 
+                if (_tuner_highlight_timer != null)
+                    _tuner_highlight_timer.Dispose();
+
                 if (quickTune_control != null)
                     quickTune_control.Close();
 
@@ -832,18 +835,94 @@ namespace opentuner
             videoSource.SetFrequency(Receiver, Freq, symbol_rate, true);
             batc_spectrum?.MarkTuner(Receiver, Freq, symbol_rate);
 
-            string tab_title = videoSource.GetSpecialTabTitle(Receiver);
+            HighlightTuner(Receiver);
+            ShowTunerTab(videoSource.GetSpecialTabTitle(Receiver));
+        }
+
+        // shows the tab with that title, false if there is none
+        private bool ShowTunerTab(string tab_title)
+        {
             if (tab_title == null)
-                return;
+                return false;
 
             foreach (TabPage page in tabControl1.TabPages)
             {
                 if (page.Text == tab_title)
                 {
                     tabControl1.SelectedTab = page;
-                    break;
+                    return true;
                 }
             }
+
+            return false;
+        }
+
+        // one colour per tuner for the highlight of the selected tuner (no red: that is the overpower indicator)
+        private static readonly System.Drawing.Color[] TunerColors =
+        {
+            System.Drawing.Color.FromArgb(0, 120, 215),     // RX 1 blue
+            System.Drawing.Color.FromArgb(0, 153, 0),       // RX 2 green
+            System.Drawing.Color.FromArgb(255, 140, 0),     // RX 3 orange
+            System.Drawing.Color.FromArgb(148, 0, 211)      // RX 4 violet
+        };
+
+        // The highlight is shown for a while only, then everything looks as before.
+        private const int TunerHighlightSeconds = 10;
+        private System.Windows.Forms.Timer _tuner_highlight_timer;
+
+        private void ClearTunerHighlight()
+        {
+            if (_tuner_highlight_timer != null)
+                _tuner_highlight_timer.Stop();
+
+            if (videoSource != null)
+                videoSource.SetTunerHighlight(-1, System.Drawing.Color.Empty);
+
+            foreach (StreamInfoContainer info in info_display)
+            {
+                if (info != null)
+                    info.HighlightColor = System.Drawing.Color.Empty;
+            }
+        }
+
+        // Left click on a video or in the row of a tuner in the spectrum: this tuner is the selected one. Its groups in the
+        // tabs and the frame of its info line get the colour of the tuner for a while (the others keep the normal look),
+        // and its Properties tab is shown. Only the right click in the spectrum shows the Special tab.
+        private void SelectTuner(int video_nr)
+        {
+            if (!HighlightTuner(video_nr))
+                return;
+
+            if (!ShowTunerTab(videoSource.GetPropertiesTabTitle(video_nr)) && tabControl1.TabPages.Contains(PropertiesPage))
+                tabControl1.SelectedTab = PropertiesPage;
+        }
+
+        // colours the groups of the tuner in the tabs and the frame of its info line for a while, false if there is no such tuner
+        private bool HighlightTuner(int video_nr)
+        {
+            if (videoSource == null || _fullscreen_form != null || video_nr < 0 || video_nr >= videoSource.GetVideoSourceCount())
+                return false;
+
+            System.Drawing.Color color = TunerColors[video_nr % TunerColors.Length];
+
+            videoSource.SetTunerHighlight(video_nr, color);
+
+            for (int i = 0; i < info_display.Count; i++)
+            {
+                if (info_display[i] != null)
+                    info_display[i].HighlightColor = (i == video_nr) ? color : System.Drawing.Color.Empty;
+            }
+
+            if (_tuner_highlight_timer == null)
+            {
+                _tuner_highlight_timer = new System.Windows.Forms.Timer();
+                _tuner_highlight_timer.Tick += (s, ev) => ClearTunerHighlight();
+            }
+            _tuner_highlight_timer.Stop();
+            _tuner_highlight_timer.Interval = TunerHighlightSeconds * 1000;
+            _tuner_highlight_timer.Start();
+
+            return true;
         }
 
 
@@ -1119,10 +1198,16 @@ namespace opentuner
             }
         }
 
-        // Right click toggles the info line above the video and the choice is saved. Left click used to
-        // do this too, so an accidental click in the picture hid it for good (issue #19).
+        // Left click selects the tuner (SelectTuner). Right click toggles the info line above the video and the choice is
+        // saved. Left click used to do this too, so an accidental click in the picture hid it for good (issue #19).
         private void video_player_MouseClick(object sender, MouseEventArgs e)
         {
+            if (e.Button == MouseButtons.Left)
+            {
+                SelectTuner((int)((Control)sender).Tag);
+                return;
+            }
+
             if (e.Button != MouseButtons.Right && e.Button != MouseButtons.Middle)
                 return;
 
@@ -1407,6 +1492,7 @@ namespace opentuner
                     batc_spectrum.QuickTuneActive = checkQuicktune.Checked;
                     batc_spectrum.OnSignalSelected += Batc_spectrum_OnSignalSelected;
                     batc_spectrum.OnSpectrumRightClick += Batc_spectrum_OnSpectrumRightClick;
+                    batc_spectrum.OnTunerSelected += SelectTuner;
                 });
             }
 

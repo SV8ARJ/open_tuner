@@ -53,6 +53,12 @@ namespace opentuner.MediaSources.Minitiouner
         private long _last_raw_log = 0;
         private double _last_cn_needed_db = double.NaN;
 
+        // colour of the border, Color.Empty for the normal one (tuner selected by a click on its video)
+        public void SetHighlight(Color color)
+        {
+            _group.HighlightColor = color;
+        }
+
         public ExpertTunerView(string title, Control parent)
         {
             _title = title;

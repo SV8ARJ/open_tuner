@@ -17,6 +17,23 @@ namespace opentuner.Utilities
         private readonly ToolTip _toolTip = new ToolTip { ShowAlways = true };
         private string _toolTipText = "";
 
+        // the tuner selected by a click on its video: frame of the info line in the colour of the tuner instead of white
+        private Color _highlight_color = Color.Empty;
+
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public Color HighlightColor
+        {
+            get { return _highlight_color; }
+            set
+            {
+                if (_highlight_color == value)
+                    return;
+
+                _highlight_color = value;
+                Invalidate();
+            }
+        }
+
         public StreamInfoContainer(bool show) 
         {
             BackColor = Color.Black;
@@ -51,7 +68,18 @@ namespace opentuner.Utilities
                 Height = wanted_height;
 
             g.FillRectangle(Brushes.Black, 0, 0, Width, Height);
-            g.DrawRectangle(Pens.White, 0, 0, Width - 1, Height - 1);
+            if (_highlight_color.IsEmpty)
+            {
+                g.DrawRectangle(Pens.White, 0, 0, Width - 1, Height - 1);
+            }
+            else
+            {
+                // twice as thick as the normal frame so that it is seen at a glance
+                using (Pen highlight_pen = new Pen(_highlight_color, 2))
+                {
+                    g.DrawRectangle(highlight_pen, 1, 1, Width - 3, Height - 3);
+                }
+            }
 
             if (last_info_data == null)
                 return;

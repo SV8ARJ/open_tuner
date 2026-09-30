@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Drawing;
 using System.Windows.Forms;
 using opentuner.MediaPlayers;
 using opentuner.Utilities;
@@ -53,6 +54,13 @@ namespace opentuner.MediaSources
         // Title of the extra tab with the symbol rate buttons and the fine tuning of that tuner ("Special"), null if the
         // source has none.
         public virtual string GetSpecialTabTitle(int device) { return null; }
+
+        // Title of the "Properties" tab of that tuner, null if the source has only the one page
+        public virtual string GetPropertiesTabTitle(int device) { return null; }
+
+        // The tuner selected by a click on its video: the groups of that tuner in the tabs get this border colour, those of
+        // the other tuners the normal one. device -1 = none.
+        public virtual void SetTunerHighlight(int device, Color color) { }
 
         public abstract int GetVolume(int device);
         public abstract void UpdateVolume(int device, int volume_delta);

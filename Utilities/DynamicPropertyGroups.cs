@@ -51,6 +51,12 @@ namespace opentuner.Utilities
             _groupBox.BringToFront();
         }
 
+        // colour of the border, Color.Empty for the normal one (tuner selected by a click on its video)
+        public void SetHighlight(System.Drawing.Color color)
+        {
+            _groupBox.HighlightColor = color;
+        }
+
         public DynamicPropertyGroup(string GroupTitle, Control Parent)
         {
             _parent = Parent;

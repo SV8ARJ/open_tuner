@@ -26,6 +26,9 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
         // mouse, else the frequency of the mouse position) and symbol rate of that signal (kS, 0 if there is none)
         public event SignalSelected OnSpectrumRightClick;
 
+        // a tuner was chosen by hand: left click on its row, tuning a bandplan channel (not by AutoTune)
+        public event Action<int> OnTunerSelected;
+
         private static readonly Object list_lock = new Object();
 
         static int height = 255;    //makes things easier
@@ -770,6 +773,9 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             else
             {
                 selectSignal(X, Y);
+
+                if (Y <= height - bandplan_height)
+                    OnTunerSelected?.Invoke(Math.Min(determine_rx(Y), Math.Min(_tuners, tuner_state.Length) - 1));
             }
 
         }
@@ -981,6 +987,7 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                 MarkTuner(rx, freq, sr);
 
                 OnSignalSelected?.Invoke(rx, freq, sr);
+                OnTunerSelected?.Invoke(rx);
             }
             catch (Exception ex)
             {

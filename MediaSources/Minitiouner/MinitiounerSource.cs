@@ -327,6 +327,26 @@ namespace opentuner.MediaSources.Minitiouner
             return _frequency_panel != null ? "Special" : null;
         }
 
+        public override string GetPropertiesTabTitle(int device)
+        {
+            return "Properties";
+        }
+
+        // device 0 = tuner 1, 1 = tuner 2; the groups of the other tuner get the normal border
+        public override void SetTunerHighlight(int device, System.Drawing.Color color)
+        {
+            System.Drawing.Color first = device == 0 ? color : System.Drawing.Color.Empty;
+            System.Drawing.Color second = device == 1 ? color : System.Drawing.Color.Empty;
+
+            _tuner1_properties?.SetHighlight(first);
+            _expert_1?.SetHighlight(first);
+            _frequency_1?.SetHighlight(first);
+
+            _tuner2_properties?.SetHighlight(second);
+            _expert_2?.SetHighlight(second);
+            _frequency_2?.SetHighlight(second);
+        }
+
         public override long GetFrequency(int device, bool offset_included)
         {
             long frequency = 0;

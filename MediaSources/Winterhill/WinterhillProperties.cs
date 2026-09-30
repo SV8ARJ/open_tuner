@@ -15,6 +15,13 @@ namespace opentuner.MediaSources.WinterHill
         private Control _parent;
 
         private DynamicPropertyGroup[] _tuner_properties = new DynamicPropertyGroup[4];
+
+        // the receiver selected by a click on its video: its group gets the border colour, the others the normal one
+        public override void SetTunerHighlight(int device, System.Drawing.Color color)
+        {
+            for (int c = 0; c < _tuner_properties.Length; c++)
+                _tuner_properties[c]?.SetHighlight(c == device ? color : System.Drawing.Color.Empty);
+        }
         private DynamicPropertyGroup _source_properties;
 
         ContextMenuStrip _genericContextStrip;

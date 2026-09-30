@@ -196,17 +196,36 @@ namespace opentuner.MediaSources.Minitiouner
             return Resolve(device, out var board, out int local) ? board.GetSymbolRate(local) : 0;
         }
 
-        // "Special" with one board, "Special-Pro" / "Special-V2" with several (see GetExtraTabs)
-        public override string GetSpecialTabTitle(int device)
+        // "Special" with one board, "Special-Pro" / "Special-V2" with several (see GetExtraTabs); the same for "Properties"
+        private string TabTitle(int device, Func<MinitiounerSource, int, string> title_of)
         {
             if (!Resolve(device, out var board, out int local))
                 return null;
 
-            string title = board.GetSpecialTabTitle(local);
+            string title = title_of(board, local);
             if (title == null || _boards.Count == 1)
                 return title;
 
             return title + "-" + BoardLabel(_boards.IndexOf(board));
+        }
+
+        public override string GetSpecialTabTitle(int device)
+        {
+            return TabTitle(device, (board, local) => board.GetSpecialTabTitle(local));
+        }
+
+        public override string GetPropertiesTabTitle(int device)
+        {
+            return TabTitle(device, (board, local) => board.GetPropertiesTabTitle(local));
+        }
+
+        public override void SetTunerHighlight(int device, System.Drawing.Color color)
+        {
+            for (int i = 0; i < _boards.Count; i++)
+            {
+                int local = device - _offsets[i];
+                _boards[i].SetTunerHighlight(local >= 0 && local < _boards[i].GetVideoSourceCount() ? local : -1, color);
+            }
         }
 
         public override long GetFrequency(int device, bool offset_included)

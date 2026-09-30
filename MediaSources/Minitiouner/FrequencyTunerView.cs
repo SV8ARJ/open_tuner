@@ -94,6 +94,12 @@ namespace opentuner.MediaSources.Minitiouner
         // capture range in kHz (0 = automatic) and correction in ppm, fired once the sliders rest
         public event Action<uint, double, int> TrimChanged;      // capture range kHz, correction ppm, manual offset kHz
 
+        // colour of the border, Color.Empty for the normal one (tuner selected by a click on its video)
+        public void SetHighlight(Color color)
+        {
+            _group.HighlightColor = color;
+        }
+
         public FrequencyTunerView(string title, Control parent)
         {
             _group = new CustomGroupBox();
