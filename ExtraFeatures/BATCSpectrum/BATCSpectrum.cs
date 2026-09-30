@@ -103,6 +103,7 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                 bandplan = XElement.Load(Path.GetDirectoryName(Application.ExecutablePath) + @"\extra\bandplan.xml");
                 drawspectrum_bandplan();
                 indexedbandplan = bandplan.Elements().ToList();
+                BuildChannelLabels();
                 foreach (var channel in bandplan.Elements("channel"))
                 {
                     if (!blocks.Contains(channel.Element("block").Value))
@@ -454,7 +455,13 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                 }
             }
 
-            tmp.DrawString(InfoText, new Font("Tahoma", 15), Brushes.White, new PointF(10, 10));
+            using (Font info_font = new Font("Tahoma", 15))
+            using (StringFormat info_format = new StringFormat())
+            {
+                // tab stop behind the widest "Dn: ..." text, so "SR:" (line 1) and "CH:" (line 2) start at the same place
+                info_format.SetTabStops(0, new float[] { tmp.MeasureString(" Dn: 10499.25", info_font).Width });
+                tmp.DrawString(InfoText, info_font, Brushes.White, new PointF(10, 10), info_format);
+            }
             tmp.DrawString(TX_Text, new Font("Tahoma", 15), Brushes.Red, new PointF(70, _spectrum.Height - 50));  //dh3cs
 
             //drawspectrum_signals(sigs.detect_signals(fft_data));
@@ -646,6 +653,25 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             return found;
         }
 
+        // "A1", "B3", ...: the row of a bandplan channel and its number in that row, counted by ascending frequency
+        // (bandplan.xml has no channel numbers); same index as indexedbandplan
+        private string[] bandplan_channel_labels;
+
+        private void BuildChannelLabels()
+        {
+            bandplan_channel_labels = new string[indexedbandplan.Count];
+
+            foreach (var row in indexedbandplan.Select((channel, index) => new { channel, index }).GroupBy(c => c.channel.Element("block").Value))
+            {
+                int number = 1;
+                foreach (var item in row.OrderBy(c => Convert.ToDouble(c.channel.Element("x-freq").Value, CultureInfo.InvariantCulture)))
+                {
+                    bandplan_channel_labels[item.index] = row.Key + number.ToString();
+                    number++;
+                }
+            }
+        }
+
         // returns TX-Freq in MHz from the rectangle in Bandplan and updates the info text, dh3cs
         private string get_bandplan_TX_freq(int x, int y)
         {
@@ -655,8 +681,9 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             if (n >= 0)
             {
                 tx_freq_MHz = indexedbandplan[n].Element("s-freq").Value;
-                InfoText = " Dn: " + indexedbandplan[n].Element("x-freq").Value + "  SR: " + indexedbandplan[n].Element("name").Value + Environment.NewLine
-                    + " Up: " + tx_freq_MHz;
+                // "SR:" and "CH:" start at the tab stop set where the text is drawn, so they are aligned
+                InfoText = " Dn: " + indexedbandplan[n].Element("x-freq").Value + "\tSR: " + indexedbandplan[n].Element("name").Value + Environment.NewLine
+                    + " Up: " + tx_freq_MHz + "\tCH: " + bandplan_channel_labels[n];
             }
             else if (InfoText != "")
             {
