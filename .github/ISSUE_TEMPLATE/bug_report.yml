@@ -12,6 +12,7 @@ body:
       label: Release
       description: Which release are you using? The build is shown in the window title.
       options:
+        - V0.B-dh1rk-beta6
         - V0.B-dh1rk-beta5
         - V0.B-dh1rk-beta4
         - V0.B-dh1rk-beta3
