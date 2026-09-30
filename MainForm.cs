@@ -345,6 +345,7 @@ namespace opentuner
 
             checkBatcSpectrum.Checked = _settings.enable_spectrum_checkbox;
             checkBatcChat.Checked = _settings.enable_chatform_checkbox;
+            UpdateSpectrumSettingsLink();
             checkMqttClient.Checked = _settings.enable_mqtt_checkbox;
             checkMqttClient.Enabled = _settings.show_mqtt_feature;
             checkPlutoCtrl.Checked = _settings.enable_plutoctrl_checkbox;
@@ -1403,6 +1404,7 @@ namespace opentuner
                 DiagnosticsHelper.Measure("Connect: BATC spectrum", () =>
                 {
                     batc_spectrum = new BATCSpectrum(spectrum, videoSource.GetVideoSourceCount());
+                    batc_spectrum.QuickTuneActive = checkQuicktune.Checked;
                     batc_spectrum.OnSignalSelected += Batc_spectrum_OnSignalSelected;
                     batc_spectrum.OnSpectrumRightClick += Batc_spectrum_OnSpectrumRightClick;
                 });
@@ -1503,27 +1505,109 @@ namespace opentuner
         private void checkBatcSpectrum_CheckedChanged(object sender, EventArgs e)
         {
             _settings.enable_spectrum_checkbox = checkBatcSpectrum.Checked;
+            UpdateSpectrumSettingsLink();
+        }
+
+        // no spectrum, no AutoTune: the settings of the spectrum are shown but cannot be used without it; the same for the
+        // chat (link on the source page, the menu "Open Tuner" is reachable while the source is connected)
+        private void UpdateSpectrumSettingsLink()
+        {
+            linkBatcSpectrumSettings.Enabled = checkBatcSpectrum.Checked;
+            linkBatcSpectrumSettings.Cursor = checkBatcSpectrum.Checked ? Cursors.Hand : Cursors.Default;
+            spectrumSettingsToolStripMenuItem.Enabled = checkBatcSpectrum.Checked;
+            chatSettingsToolStripMenuItem.Enabled = checkBatcChat.Checked;
+        }
+
+        private void linkBatcSpectrumSettings_Click(object sender, EventArgs e)
+        {
+            ShowSpectrumSettings();
+        }
+
+        private void spectrumSettingsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ShowSpectrumSettings();
+        }
+
+        private void ShowSpectrumSettings()
+        {
+            if (!checkBatcSpectrum.Checked)
+                return;
+
+            // tuning modes (AutoTune), threshold, times and the overpower layout of the BATC spectrum
+            var spectrum_settingsManager = new SettingsManager<BATCSpectrumSettings>("spectrumSettings");
+            BATCSpectrumSettings spectrum_settings = spectrum_settingsManager.LoadSettings(new BATCSpectrumSettings());
+
+            using (var spectrum_settings_form = new BATCSpectrumSettingsForm(spectrum_settings))
+            {
+                if (spectrum_settings_form.ShowDialog() == DialogResult.OK)
+                {
+                    spectrum_settingsManager.SaveSettings(spectrum_settings);
+                    batc_spectrum?.ReloadSettings();
+                }
+            }
         }
 
         private void checkBatcChat_CheckedChanged(object sender, EventArgs e)
         {
+            UpdateSpectrumSettingsLink();
             _settings.enable_chatform_checkbox = checkBatcChat.Checked;
         }
 
         private void linkBatcWebchatSettings_Click(object sender, EventArgs e)
         {
-            // webchat settings
-            WebChatSettings wc_settings = new WebChatSettings();
+            ShowChatSettings();
+        }
+
+        private void chatSettingsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ShowChatSettings();
+        }
+
+        private void ShowChatSettings()
+        {
+            // webchat settings; with a running chat its own settings are edited: they apply at once, and the chat does not
+            // write its old values over the new ones when it is closed
             SettingsManager<WebChatSettings> wc_settingsManager = new SettingsManager<WebChatSettings>("qo100_webchat_settings");
-            wc_settings = (wc_settingsManager.LoadSettings(wc_settings));
+            WebChatSettings wc_settings = batc_chat != null
+                ? batc_chat.Settings
+                : wc_settingsManager.LoadSettings(new WebChatSettings());
+
+            int old_font_size = wc_settings.chat_font_size;
 
             WebChatSettngsForm wc_settings_form = new WebChatSettngsForm(ref wc_settings);
 
             if (wc_settings_form.ShowDialog() == DialogResult.OK)
             {
-                wc_settingsManager.SaveSettings(wc_settings);
+                if (batc_chat != null)
+                {
+                    batc_chat.ApplySettings();
+
+                    // the lines already written keep their font: build the chat again, it gets the history from the server
+                    if (wc_settings.chat_font_size != old_font_size)
+                        RestartChat();
+                }
+                else
+                {
+                    wc_settingsManager.SaveSettings(wc_settings);
+                }
             }
 
+        }
+
+        // a new chat window with the saved settings, shown again if it was visible (the login has to be done again unless
+        // auto login is on)
+        private void RestartChat()
+        {
+            if (batc_chat == null || videoSource == null)
+                return;
+
+            bool was_visible = batc_chat.Visible;
+
+            batc_chat.CloseForRestart();
+            batc_chat = new BATCChat(videoSource);
+
+            if (was_visible)
+                batc_chat.Show();
         }
 
         private void linkDocumentation_Click(object sender, EventArgs e)

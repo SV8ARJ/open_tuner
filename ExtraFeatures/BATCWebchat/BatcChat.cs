@@ -80,6 +80,32 @@ namespace opentuner.ExtraFeatures.BATCWebchat
             wc_settingsManager.SaveSettings(wc_settings);
         }
 
+        // The settings the running chat uses: the settings window edits these (not a copy), so that a change applies at
+        // once and is not overwritten with the old values when the chat window is closed (_form_FormClosing)
+        public WebChatSettings Settings
+        {
+            get { return wc_settings; }
+        }
+
+        // after the settings window: save them and let the open chat use them
+        public void ApplySettings()
+        {
+            wc_settingsManager.SaveSettings(wc_settings);
+            _form.ApplySettings();
+        }
+
+        public bool Visible
+        {
+            get { return _form.Visible; }
+        }
+
+        // The chat window is closed for real and the connection dropped (the window position is saved by the FormClosing
+        // handler above); the caller creates a new BATCChat, which reads the saved settings and gets the history again.
+        public void CloseForRestart()
+        {
+            _form.Shutdown();
+        }
+
         public void Show()
         {
             _form.Show();

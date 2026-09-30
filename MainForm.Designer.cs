@@ -84,6 +84,8 @@
             this.settingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.sourceSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.hardwareInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.spectrumSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.chatSettingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuManageFrequencyPresets = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.quitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -320,6 +322,7 @@
             this.linkBatcSpectrumSettings.Cursor = System.Windows.Forms.Cursors.Hand;
             this.linkBatcSpectrumSettings.ForeColor = System.Drawing.Color.RoyalBlue;
             this.linkBatcSpectrumSettings.Name = "linkBatcSpectrumSettings";
+            this.linkBatcSpectrumSettings.Click += new System.EventHandler(this.linkBatcSpectrumSettings_Click);
             // 
             // linkMqttSettings
             // 
@@ -559,6 +562,8 @@
             this.toolStripSeparator3,
             this.settingsToolStripMenuItem,
             this.sourceSettingsToolStripMenuItem,
+            this.spectrumSettingsToolStripMenuItem,
+            this.chatSettingsToolStripMenuItem,
             this.hardwareInfoToolStripMenuItem,
             this.menuManageFrequencyPresets,
             this.toolStripSeparator1,
@@ -589,6 +594,20 @@
             this.sourceSettingsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.sourceSettingsToolStripMenuItem.Text = "Source Settings";
             this.sourceSettingsToolStripMenuItem.Click += new System.EventHandler(this.sourceSettingsToolStripMenuItem_Click);
+            //
+            // spectrumSettingsToolStripMenuItem
+            //
+            this.spectrumSettingsToolStripMenuItem.Name = "spectrumSettingsToolStripMenuItem";
+            this.spectrumSettingsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.spectrumSettingsToolStripMenuItem.Text = "BATC Spectrum Settings...";
+            this.spectrumSettingsToolStripMenuItem.Click += new System.EventHandler(this.spectrumSettingsToolStripMenuItem_Click);
+            //
+            // chatSettingsToolStripMenuItem
+            //
+            this.chatSettingsToolStripMenuItem.Name = "chatSettingsToolStripMenuItem";
+            this.chatSettingsToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.chatSettingsToolStripMenuItem.Text = "Wideband Chat Settings...";
+            this.chatSettingsToolStripMenuItem.Click += new System.EventHandler(this.chatSettingsToolStripMenuItem_Click);
             //
             // hardwareInfoToolStripMenuItem
             //
@@ -724,6 +743,8 @@
         private System.Windows.Forms.ToolStripMenuItem openTunerToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem settingsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem sourceSettingsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem spectrumSettingsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem chatSettingsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem hardwareInfoToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem quitToolStripMenuItem;
         private System.Windows.Forms.TabControl tabControl1;

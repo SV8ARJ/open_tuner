@@ -80,9 +80,6 @@ namespace opentuner
         public List<Sig> signals = new List<Sig>();  //list of signals found: 
         public List<Sig> signalsData = new List<Sig>();
         double start_freq = 10490.5f;
-        float minsr = 0.065f;
-        int num_rx_scan = 1;
-        int num_rx = 1;
 
         Random rnd = new Random();
 
@@ -92,140 +89,6 @@ namespace opentuner
             //init nothing!
 
 
-        }
-
-        bool avoid_beacon = false;
-
-        private Sig[] last_sig = new Sig[8];             //last tune signal - detail
-        private Sig[] next_sig = new Sig[8];             //last tune signal - detail
-
-        private DateTime[] last_tuned_time = new DateTime[8];   //time the last signal was tuned
-
-        public void set_avoidbeacon(bool b)
-        {
-            avoid_beacon = b;
-        }
-
-        public void set_tuned(Sig s, int rx)
-        {
-            last_sig[rx] = s;
-        }
-
-        public void set_minsr(float _minsr)
-        {
-            minsr = _minsr;
-        }
-
-        public void set_num_rx(int _num_rx)
-        {
-            num_rx = _num_rx;
-        }
-        public void set_num_rx_scan(int _num_rx_scan)
-        {
-            num_rx_scan = _num_rx_scan;
-        }
-
-        public void clear(int rx)
-        {
-            last_sig[rx] = new Sig();
-        }
-
-
-        //function to find out whether to change tuning and which signal to tune to - auto tune mode
-        public Tuple<Sig, int> tune(int mode, int time, int rx)
-        {
-            // int rx = 0;
-            bool change = false;
-            //mode
-            //0=manual
-            //1=auto wait
-            //2=auto timed
-            //Log.Information(rx);
-            TimeSpan t = DateTime.Now - last_tuned_time[rx];
-
-
-            lock (list_lock)
-            {
-
-                if (mode == 2)      //auto timed
-                {
-                    //Log.Information(t.Seconds);
-                    if ((t.Minutes * 60) + t.Seconds > time)
-                    {
-                        //          Log.Information("elapsed: "+rx.ToString());
-                        next_sig[rx] = find_next(rx);
-
-                        if (diff_signals(last_sig[rx], next_sig[rx]) && next_sig[rx].frequency > 0)       //check if next is not the same as current
-                        {
-                            change = true;
-                        }
-                    }
-                    else
-                    {
-                        if (!find_signal(last_sig[rx], rx))      //if the selected signal goes off then find another one to tune to
-                        {
-                            next_sig[rx] = find_next(rx);
-
-                            if (diff_signals(last_sig[rx], next_sig[rx]) && next_sig[rx].frequency > 0)       //check if next is not the same as current
-                            {
-                                change = true;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    if (!find_signal(last_sig[rx], rx))  //if the selected signal goes off then find another one to tune to
-                    {
-                        next_sig[rx] = find_next(rx);
-
-                        if (diff_signals(last_sig[rx], next_sig[rx]) && next_sig[rx].frequency > 0)       //check if next is not the same as current
-                        {
-                            change = true;
-                        }
-                    }
-                }
-
-
-                // Log.Information("Count3:" + signals.Count().ToString());
-                if (change)
-                {
-                    last_sig[rx] = next_sig[rx];
-                    last_tuned_time[rx] = DateTime.Now.AddSeconds(rx);
-                    return new Tuple<Sig, int>(last_sig[rx], rx);
-                }
-                else
-                {
-                    return new Tuple<Sig, int>(new Sig(), rx);
-                }
-            }
-        }
-
-
-
-        public bool find_signal(Sig lastsig, int rx)
-        {
-            float span;
-            bool found = false;
-            int n = 0;
-
-            foreach (Sig s in signals)
-            {
-                if (s.sr < 0.070)
-                {
-                    span = 0.01f;
-                }
-                else
-                {
-                    span = 0.05f;
-                }
-                if (s.frequency > (last_sig[rx].frequency - span) && s.frequency < (last_sig[rx].frequency + span) && s.sr == last_sig[rx].sr)      // +/- span, signal freq varies!
-                {
-                    found = true;
-                }
-                n++;
-            }
-            return found;
         }
 
         public bool diff_signals(Sig lastsig, Sig next)
@@ -320,71 +183,6 @@ namespace opentuner
 
         }
 
-        private Sig find_next(int rx)
-        {
-
-            Sig newsig = new Sig();
-            int n = 0;
-            float startfreq;
-            if (avoid_beacon)
-            {
-                startfreq = 10492;
-            }
-            else
-            {
-                startfreq = startfreq = 10490; ;
-            }
-
-            //      Console.Write("Rx:" + rx.ToString() + " Current Tuned:" + last_sig[rx].frequency+"\n");
-            foreach (Sig s in signals)
-            {
-                //         Console.Write("Rx:" + rx.ToString() + " 1st Try:" + s.frequency.ToString()+" ");
-                bool newfreq = true;
-                for (int i = 0; i < num_rx; i++)
-                {
-                    if (!diff_signals(s, last_sig[i]))
-                    {
-                        newfreq = false;
-                    }
-                }
-                //          Console.Write("Available=" + newfreq.ToString() + " \n");
-                if (s.frequency > startfreq && s.frequency > (last_sig[rx].frequency + 0.05) && s.sr >= minsr && newfreq)      // +/- span, signal freq varies!
-                {
-                    newsig = s;
-                    break;
-                }
-                n++;
-                if (newsig.frequency > 0)
-                    break;
-
-            }
-            if (newsig.frequency < 1)       //nothing available above last freq, return to bottom and start again until orig signal freq
-            {
-                foreach (Sig s in signals)
-                {
-                    //             Console.Write("Rx:"+rx.ToString()+" 2nd Try:" + s.frequency.ToString()+" ");
-                    bool newfreq = true;
-                    for (int i = 0; i < num_rx; i++)
-                    {
-                        if (!diff_signals(s, last_sig[i]))
-                        {
-                            newfreq = false;
-                        }
-                    }
-                    //              Console.Write("Available="+newfreq.ToString()+" \n");
-                    if (s.frequency > startfreq && s.frequency < (last_sig[rx].frequency - 0.05) && s.sr >= minsr && newfreq)
-                    {
-                        newsig = s;
-
-                        break;
-                    }
-
-                }
-            }
-            //       Log.Information("new=:" + newsig.frequency.ToString()+"\n");
-            return newsig;
-        }
-
         public void updateCurrentSignal(string callsign, double freq, float sr)
         {
             lock (list_lock)
@@ -400,6 +198,172 @@ namespace opentuner
                     }
                 }
             }
+        }
+
+        // ---- AutoTune: choosing the signal for a tuner ----------------------------------------------------------
+        // The searches work on signalsData (kept over the frames, with the callsigns) and skip the signals the other
+        // tuners are on. Frequency and symbol rate in MHz, like Sig.
+
+        private const double BeaconLimitMHz = 10492.0;   // below this frequency is the beacon
+
+        public struct TunedSignal
+        {
+            public int tuner;
+            public double frequency;
+            public float sr;
+
+            public TunedSignal(int tuner, double frequency, float sr)
+            {
+                this.tuner = tuner;
+                this.frequency = frequency;
+                this.sr = sr;
+            }
+        }
+
+        public static bool IsBeacon(double frequency)
+        {
+            return frequency < BeaconLimitMHz;
+        }
+
+        // a signal AutoTune may tune: not the beacon if that is to be avoided, strong enough (no dBb yet = no beacon seen,
+        // accepted) and not one of the signals the other tuners are on
+        private bool IsCandidate(Sig s, List<TunedSignal> in_use, bool avoid_beacon, float threshold)
+        {
+            if (avoid_beacon && IsBeacon(s.frequency))
+                return false;
+
+            if (!float.IsNaN(s.dbb) && s.dbb < threshold)
+                return false;
+
+            foreach (TunedSignal t in in_use)
+            {
+                if (!diff_signals(s, t.frequency, t.sr))
+                    return false;
+            }
+
+            return true;
+        }
+
+        // the tuned signal is gone from the spectrum (or it is the beacon and that is to be avoided)
+        public bool SignalLost(double frequency, float sr, bool avoid_beacon)
+        {
+            if (avoid_beacon && IsBeacon(frequency))
+                return true;
+
+            lock (list_lock)
+            {
+                foreach (Sig s in signalsData)
+                {
+                    if (!diff_signals(s, frequency, sr))
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
+        // the signal at this frequency again (the symbol rate may have been measured differently), not on another tuner
+        public Sig FindSameSignal(double frequency, float sr, List<TunedSignal> in_use, bool avoid_beacon, float threshold)
+        {
+            lock (list_lock)
+            {
+                foreach (Sig s in signalsData)
+                {
+                    // the tolerance is that of the wider of the two rates: a signal that was tuned as 33 kS and is
+                    // measured as 125 kS now is still the same
+                    double tolerance = Math.Max(s.sr, sr) < 0.070f ? 0.01 : 0.075;
+
+                    if (Math.Abs(s.frequency - frequency) < tolerance && IsCandidate(s, in_use, avoid_beacon, threshold))
+                        return s;
+                }
+            }
+
+            return new Sig();
+        }
+
+        // the strongest free signal (start of AutoTune)
+        public Sig FindStrongestSignal(List<TunedSignal> in_use, bool avoid_beacon, float threshold)
+        {
+            Sig best = new Sig();
+
+            lock (list_lock)
+            {
+                foreach (Sig s in signalsData)
+                {
+                    if (!IsCandidate(s, in_use, avoid_beacon, threshold))
+                        continue;
+
+                    if (best.frequency == 0 || s.fft_strength > best.fft_strength)
+                        best = s;
+                }
+            }
+
+            return best;
+        }
+
+        // the free signal nearest to the frequency, only one without callsign if only_new; never the signal at that frequency
+        public Sig FindNearestSignal(double frequency, float sr, List<TunedSignal> in_use, bool avoid_beacon, float threshold, bool only_new)
+        {
+            Sig best = new Sig();
+
+            lock (list_lock)
+            {
+                foreach (Sig s in signalsData)
+                {
+                    if (!IsCandidate(s, in_use, avoid_beacon, threshold))
+                        continue;
+
+                    if (frequency > 0 && !diff_signals(s, frequency, sr))
+                        continue;
+
+                    if (only_new && !string.IsNullOrEmpty(s.callsign))
+                        continue;
+
+                    if (best.frequency == 0 || Math.Abs(s.frequency - frequency) < Math.Abs(best.frequency - frequency))
+                        best = s;
+                }
+            }
+
+            return best;
+        }
+
+        // the next free signal above the frequency, from the bottom again after the last one (Auto Timed)
+        public Sig FindNextTimedSignal(double frequency, float sr, List<TunedSignal> in_use, bool avoid_beacon, float threshold)
+        {
+            Sig next = new Sig();
+            Sig lowest = new Sig();
+
+            lock (list_lock)
+            {
+                foreach (Sig s in signalsData)
+                {
+                    if (!IsCandidate(s, in_use, avoid_beacon, threshold))
+                        continue;
+
+                    if (frequency > 0 && !diff_signals(s, frequency, sr))
+                        continue;   // the signal it is on
+
+                    if (lowest.frequency == 0 || s.frequency < lowest.frequency)
+                        lowest = s;
+
+                    if (s.frequency > frequency && (next.frequency == 0 || s.frequency < next.frequency))
+                        next = s;
+                }
+            }
+
+            return next.frequency > 0 ? next : lowest;
+        }
+
+        // A signal is overpowering when it is stronger than this many dB relative to the beacon (setting, was
+        // -0.7 dB in the original code: 0.75 * 3276.8 of 65536 units)
+        public float OverpowerLimitDb = 0f;
+
+        private const float DbbUnitsPerDb = 65536.0f * 0.052778f;     // see CalcDbb
+
+        // FFT value above which a signal is overpowering (see isOverPower), 0 without beacon
+        public int OverpowerLimit
+        {
+            get { return beacon_strength > 0 ? beacon_strength + Convert.ToInt32(OverpowerLimitDb * DbbUnitsPerDb) : 0; }
         }
 
         // Signal strength in dB relative to the beacon (dBb), NaN as long as no beacon has been seen.
@@ -422,7 +386,7 @@ namespace opentuner
                     return false;
                 }
 
-                if (signal_strength > (beacon_strength - (0.75 * 3276.8)))
+                if (signal_strength > beacon_strength + OverpowerLimitDb * DbbUnitsPerDb)
                 {
                     return true;
                 }

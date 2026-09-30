@@ -12,6 +12,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Drawing.Drawing2D;
 using Serilog;
+using opentuner.Utilities;
 
 namespace opentuner.ExtraFeatures.BATCSpectrum
 {
@@ -37,6 +38,7 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
         SolidBrush shadowBrush = new SolidBrush(Color.FromArgb(128, Color.Gray));
         SolidBrush bandplanBrush = new SolidBrush(Color.FromArgb(180, 250, 250, 255));
         SolidBrush overpowerBrush = new SolidBrush(Color.FromArgb(128, Color.Red));
+        Pen overpowerPen = new Pen(Color.FromArgb(200, Color.Red), 2);
 
         SolidBrush tuner1Brush = new SolidBrush(Color.FromArgb(50, Color.Blue));
         SolidBrush tuner2Brush = new SolidBrush(Color.FromArgb(50, Color.Green));
@@ -59,7 +61,6 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
         socket web_socket;
         signal sigs;
 
-        int num_rxs_to_scan = 1;
 
         private PictureBox _spectrum;
         private int _tuners;
@@ -67,7 +68,24 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
         Timer SpectrumTuneTimer;
         Timer websocketTimer;
 
-        private int _autoTuneMode = 0;
+        // AutoTune: the settings (settings\spectrumSettings.json) and what every tuner is tuned to
+        private BATCSpectrumSettings spectrumSettings = new BATCSpectrumSettings();
+        private readonly SettingsManager<BATCSpectrumSettings> spectrumSettingsManager = new SettingsManager<BATCSpectrumSettings>("spectrumSettings");
+
+        private class TunerState
+        {
+            public double frequency;                        // MHz, 0 = not tuned yet
+            public float sr;                                // MHz
+            public DateTime changed = DateTime.MinValue;    // last time it was tuned
+            public bool lost;                               // the signal is gone from the spectrum
+            public DateTime lost_since = DateTime.MinValue;
+        }
+
+        private readonly TunerState[] tuner_state = { new TunerState(), new TunerState(), new TunerState(), new TunerState() };
+        private DateTime autotune_start = DateTime.MaxValue;    // AutoTune waits a few seconds after the connection
+
+        // with QuickTune all tuners stay manual
+        public bool QuickTuneActive;
 
         int connect_retries = 5;
         int connect_retry_count = 0;
@@ -127,15 +145,12 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             // try to connect
             web_socket.start();
 
-            sigs.set_num_rx_scan(num_rxs_to_scan);
-            sigs.set_num_rx(1);
-
-            sigs.set_avoidbeacon(true);
+            LoadSpectrumSettings();
 
             SpectrumTuneTimer = new Timer();
-            SpectrumTuneTimer.Enabled = false;
-            SpectrumTuneTimer.Interval = 1500;
+            SpectrumTuneTimer.Interval = 1000;
             SpectrumTuneTimer.Tick += new System.EventHandler(this.SpectrumTuneTimer_Tick);
+            SpectrumTuneTimer.Enabled = true;
 
             websocketTimer = new Timer();
             websocketTimer.Interval = 2000;
@@ -170,13 +185,14 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             {
                 // reset retry count
                 connect_retry_count = 0;
-                
+
+                // AutoTune starts a few seconds after the connection, when the signals are known
+                autotune_start = DateTime.Now.AddSeconds(5);
             }
             else
             {
-                // if we lost connection then disable autotune
-                _autoTuneMode = 0;
-                SpectrumTuneTimer.Enabled = false;
+                // no spectrum data: no AutoTune
+                autotune_start = DateTime.MaxValue;
             }
             
         }
@@ -235,39 +251,239 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             }
         }
 
-        public void changeTuneMode(int mode)
+        // ---- AutoTune -------------------------------------------------------------------------------------------
+        // Once a second (SpectrumTuneTimer, UI thread) the tuners in an Auto mode are looked at, and at most one of
+        // them is tuned per round, so that two tuners never choose the same signal. What every tuner is tuned to is
+        // noted wherever a signal is tuned (SetTunerState): left click, bandplan, right click and AutoTune itself.
+
+        private void LoadSpectrumSettings()
         {
-            _autoTuneMode = mode;
-
-            if (mode == 0)
+            try
             {
-                SpectrumTuneTimer?.Stop();
+                spectrumSettings = spectrumSettingsManager.LoadSettings(new BATCSpectrumSettings());
             }
-            else
+            catch (Exception ex)
             {
-                SpectrumTuneTimer?.Start();
+                Log.Warning(ex, "BATC spectrum: the settings could not be loaded, using the defaults");
             }
 
+            if (spectrumSettings == null)
+                spectrumSettings = new BATCSpectrumSettings();
+
+            // a hand edited file may have fewer than 4 tuners
+            if (spectrumSettings.tuneMode == null)
+                spectrumSettings.tuneMode = new int[4];
+            if (spectrumSettings.avoidBeacon == null)
+                spectrumSettings.avoidBeacon = new bool[4];
+            Array.Resize(ref spectrumSettings.tuneMode, 4);
+            Array.Resize(ref spectrumSettings.avoidBeacon, 4);
+
+            sigs.OverpowerLimitDb = spectrumSettings.overPowerLimit;
+        }
+
+        // after the settings window: a tuner that went from Manual to an Auto mode is looked at at once
+        public void ReloadSettings()
+        {
+            int[] old_modes = (int[])spectrumSettings.tuneMode.Clone();
+            LoadSpectrumSettings();
+
+            for (int i = 0; i < tuner_state.Length; i++)
+                NoteModeChange(i, old_modes[i]);
+        }
+
+        private void NoteModeChange(int rx, int old_mode)
+        {
+            if (old_mode == BATCSpectrumSettings.ModeManual && spectrumSettings.tuneMode[rx] != BATCSpectrumSettings.ModeManual)
+            {
+                tuner_state[rx].changed = DateTime.MinValue;
+                tuner_state[rx].lost_since = DateTime.MinValue;
+            }
+        }
+
+        private void SetTunerState(int rx, double frequency_mhz, float sr_mhz)
+        {
+            if (rx < 0 || rx >= tuner_state.Length)
+                return;
+
+            TunerState state = tuner_state[rx];
+            state.frequency = frequency_mhz;
+            state.sr = sr_mhz;
+            state.changed = DateTime.Now;
+            state.lost = false;
+            state.lost_since = DateTime.MinValue;
+        }
+
+        // tune a tuner to a signal of the list, like a click on it
+        private void TuneToSignal(int rx, signal.Sig s)
+        {
+            rx_blocks[rx, 0] = Convert.ToInt16(s.fft_centre);
+            rx_blocks[rx, 1] = Convert.ToInt16(s.fft_stop - s.fft_start);
+
+            uint freq = Convert.ToUInt32(s.frequency * 1000);
+            uint sr = Convert.ToUInt32(s.sr * 1000.0);
+
+            SetTunerState(rx, s.frequency, s.sr);
+
+            debug("Freq: " + freq.ToString());
+            debug("SR: " + sr.ToString());
+
+            OnSignalSelected?.Invoke(rx, freq, sr);
+        }
+
+        // "Auto (Hold)" under "RX n" in the spectrum, nothing for Manual
+        private string TuneModeText(int rx)
+        {
+            if (QuickTuneActive)
+                return "QuickTune";
+
+            switch (spectrumSettings.tuneMode[rx])
+            {
+                case BATCSpectrumSettings.ModeAutoHold:
+                    return "Auto (Hold)";
+                case BATCSpectrumSettings.ModeAutoNextNew:
+                    return "Auto (Next)";
+                case BATCSpectrumSettings.ModeAutoTimed:
+                    return spectrumSettings.avoidBeacon[rx] ? "Auto (Timed), no beacon" : "Auto (Timed)";
+                default:
+                    return "";
+            }
         }
 
         private void SpectrumTuneTimer_Tick(object sender, EventArgs e)
         {
-            int mode = _autoTuneMode;
-            float spectrum_w = _spectrum.Width;
-            float spectrum_wScale = spectrum_w / 922;
-
-            ushort autotuneWait = 30;
-
-            Tuple<signal.Sig, int> ret = sigs.tune(mode, Convert.ToInt16(autotuneWait), 0);
-            if (ret.Item1.frequency > 0)      //above 0 is a change in signal
+            try
             {
-                System.Threading.Thread.Sleep(100);
-                selectSignal(Convert.ToInt32(ret.Item1.fft_centre * spectrum_wScale), 0);
-                sigs.set_tuned(ret.Item1, 0);
-                rx_blocks[0, 0] = Convert.ToInt16(ret.Item1.fft_centre);
-                rx_blocks[0, 1] = Convert.ToInt16(ret.Item1.fft_stop - ret.Item1.fft_start);
+                AutoTuneStep();
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "BATC spectrum: AutoTune failed");
+            }
+        }
+
+        private void AutoTuneStep()
+        {
+            DateTime now = DateTime.Now;
+
+            if (QuickTuneActive || now < autotune_start)
+                return;
+
+            int tuners = Math.Min(_tuners, tuner_state.Length);
+
+            bool any_auto = false;
+            for (int i = 0; i < tuners; i++)
+            {
+                if (spectrumSettings.tuneMode[i] != BATCSpectrumSettings.ModeManual)
+                    any_auto = true;
             }
 
+            if (!any_auto)
+                return;
+
+            // the signals the tuners are on, also those of manual tuners: nobody else goes there
+            var tuned = new List<signal.TunedSignal>();
+            for (int i = 0; i < tuners; i++)
+            {
+                if (tuner_state[i].frequency > 0)
+                    tuned.Add(new signal.TunedSignal(i, tuner_state[i].frequency, tuner_state[i].sr));
+            }
+
+            for (int i = 0; i < tuners; i++)
+            {
+                int mode = spectrumSettings.tuneMode[i];
+                if (mode == BATCSpectrumSettings.ModeManual)
+                    continue;
+
+                TunerState state = tuner_state[i];
+                bool avoid_beacon = spectrumSettings.avoidBeacon[i] || mode != BATCSpectrumSettings.ModeAutoTimed;
+                float threshold = spectrumSettings.threshold;
+                double timed_seconds = spectrumSettings.autoTuneTimeValue;
+                double hold_seconds = spectrumSettings.autoHoldTimeValue;
+
+                List<signal.TunedSignal> others = tuned.Where(t => t.tuner != i).ToList();
+                bool is_tuned = state.frequency > 0;
+
+                bool lost = is_tuned && sigs.SignalLost(state.frequency, state.sr, avoid_beacon);
+                if (lost && !state.lost)
+                    state.lost_since = now;
+                state.lost = lost;
+
+                double since_tuned = (now - state.changed).TotalSeconds;
+                double since_lost = (now - state.lost_since).TotalSeconds;
+
+                signal.Sig next = new signal.Sig();
+
+                if (mode == BATCSpectrumSettings.ModeAutoTimed)
+                {
+                    if (!is_tuned || lost || since_tuned > timed_seconds)
+                        next = sigs.FindNextTimedSignal(state.frequency, state.sr, others, avoid_beacon, threshold);
+                }
+                else if (!is_tuned)
+                {
+                    // start: the strongest signal nobody is on
+                    next = sigs.FindStrongestSignal(others, avoid_beacon, threshold);
+                }
+                else if (lost)
+                {
+                    signal.Sig same = sigs.FindSameSignal(state.frequency, state.sr, others, avoid_beacon, threshold);
+
+                    if (same.frequency > 0)
+                    {
+                        // the signal is back (the beacon is never "back"); tune again only if its symbol rate is measured differently
+                        if (Math.Abs(same.sr - state.sr) > 0.0005f)
+                            next = same;
+                        else
+                            state.lost = false;
+                    }
+                    else if (since_lost > hold_seconds || signal.IsBeacon(state.frequency))
+                    {
+                        next = sigs.FindNearestSignal(state.frequency, state.sr, others, avoid_beacon, threshold, false);
+                    }
+                }
+                else if (mode == BATCSpectrumSettings.ModeAutoNextNew && since_tuned > timed_seconds)
+                {
+                    next = sigs.FindNearestSignal(state.frequency, state.sr, others, avoid_beacon, threshold, true);
+                }
+
+                if (next.frequency > 0)
+                {
+                    debug("AutoTune: RX " + (i + 1) + " -> " + next.frequency.ToString("0.000", CultureInfo.InvariantCulture) + " MHz, " + (next.sr * 1000).ToString("0") + " kS");
+                    TuneToSignal(i, next);
+                    return;     // one tuner per round
+                }
+            }
+        }
+
+        // middle click: small dialog for the tuning mode of the tuner of the clicked row
+        private void ShowTuneModeDialog(int X, int Y)
+        {
+            int rx = Math.Min(determine_rx(Y), Math.Min(_tuners, tuner_state.Length) - 1);
+            if (rx < 0 || QuickTuneActive)
+                return;
+
+            int old_mode = spectrumSettings.tuneMode[rx];
+
+            using (var dialog = new oneTunerTuneModeForm(rx + 1, old_mode, spectrumSettings.avoidBeacon[rx]))
+            {
+                // at the mouse, kept on the screen
+                Point at = _spectrum.PointToScreen(new Point(X - dialog.Width / 2, Y));
+                Rectangle area = Screen.FromPoint(Cursor.Position).WorkingArea;
+                at.X = Math.Max(area.Left, Math.Min(at.X, area.Right - dialog.Width));
+                at.Y = Math.Max(area.Top, Math.Min(at.Y, area.Bottom - dialog.Height));
+
+                dialog.StartPosition = FormStartPosition.Manual;
+                dialog.Location = at;
+
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    spectrumSettings.tuneMode[rx] = dialog.getTuneMode();
+                    spectrumSettings.avoidBeacon[rx] = dialog.getAvoidBeacon();
+                    NoteModeChange(rx, old_mode);
+
+                    if (!spectrumSettingsManager.SaveSettings(spectrumSettings))
+                        Log.Warning("BATC spectrum: the settings could not be saved");
+                }
+            }
         }
 
         private void debug(string msg)
@@ -467,17 +683,43 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             //drawspectrum_signals(sigs.detect_signals(fft_data));
             sigs.detect_signals(fft_data);
 
-            // draw over power
+            // draw over power, in the layout of the settings (classic = the whole signal red)
             // locked like every other signalsData access (detect_signals, updateCurrentSignal,
             // drawspectrum_signals) - this loop was the one unprotected spot and could race with
             // a concurrent mutation from the socket data thread ("Collection was modified").
             lock (list_lock)
             {
+                // the level above which a signal overpowers, as a line across the signal
+                int limit_y = height - sigs.OverpowerLimit / 255;
+                int layout = spectrumSettings.overPowerIndicatorLayout;
+
                 foreach (var sig in sigs.signalsData)
                 {
-                    if (sig.overpower)
+                    if (!sig.overpower)
+                        continue;
+
+                    float box_x = sig.fft_centre * spectrum_wScale - ((sig.fft_stop - sig.fft_start) * spectrum_wScale) / 2;
+                    float box_w = (sig.fft_stop - sig.fft_start) * spectrum_wScale;
+                    bool with_line = layout >= 1 && sigs.OverpowerLimit > 0;
+
+                    if (with_line)
+                        tmp.DrawLine(overpowerPen, sig.fft_start * spectrum_wScale - 15, limit_y, sig.fft_stop * spectrum_wScale + 15, limit_y);
+
+                    switch (layout)
                     {
-                        tmp.FillRectangles(overpowerBrush, new RectangleF[] { new System.Drawing.Rectangle(Convert.ToInt16(sig.fft_centre * spectrum_wScale) - (Convert.ToInt16((sig.fft_stop - sig.fft_start) * spectrum_wScale) / 2), 1, Convert.ToInt16((sig.fft_stop - sig.fft_start) * spectrum_wScale), (255) - 4) });
+                        case 2:     // box from top to line
+                            if (with_line)
+                                tmp.FillRectangle(overpowerBrush, box_x, 1, box_w, limit_y - 1);
+                            break;
+                        case 3:     // box from line to bottom
+                            if (with_line)
+                                tmp.FillRectangle(overpowerBrush, box_x, limit_y, box_w, height - 4 - limit_y);
+                            break;
+                        case 4:     // line only
+                            break;
+                        default:    // classic, classic + line
+                            tmp.FillRectangle(overpowerBrush, box_x, 1, box_w, height - 4);
+                            break;
                     }
                 }
             }
@@ -487,6 +729,10 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                 y = i * (spectrum_h / _tuners);
                 tmp.DrawLine(greyPen, 10, y, spectrum_w, y);
                 tmp.DrawString("RX " + (i+1).ToString(), new Font("Tahoma", 10), Brushes.White, new PointF(5, y));
+
+                string mode_text = TuneModeText(i);
+                if (mode_text.Length > 0)
+                    tmp.DrawString(mode_text, new Font("Tahoma", 10), Brushes.White, new PointF(5, y + 14));
             }
 
             drawspectrum_signals(sigs.signalsData);
@@ -514,6 +760,12 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                     tuneBandplanChannel(X, Y);
                 else if (Y <= height - bandplan_height)
                     rightClickSignalArea(X, Y);
+            }
+            else if (me.Button == MouseButtons.Middle)
+            {
+                // tuning mode (Manual, AutoTune) of the tuner of the clicked row
+                if (Y <= height - bandplan_height)
+                    ShowTuneModeDialog(X, Y);
             }
             else
             {
@@ -566,6 +818,8 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
 
             rx_blocks[rx, 0] = Convert.ToInt16(((freq_khz / 1000.0 - start_freq) / 9.0) * 922.0);
             rx_blocks[rx, 1] = Convert.ToInt16(sr_ks / 1000.0 / 9.0 * 922.0 * 1.35);
+
+            SetTunerState(rx, freq_khz / 1000.0, sr_ks / 1000f);
         }
 
         // quick tune functions - From https://github.com/m0dts/QO-100-WB-Live-Tune - Rob Swinbank
@@ -597,16 +851,7 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                     if ((X / spectrum_wScale) > s.fft_start & (X / spectrum_wScale) < s.fft_stop)
                     {
 
-                        sigs.set_tuned(s, rx);
-                        rx_blocks[rx, 0] = Convert.ToInt16(s.fft_centre);
-                        rx_blocks[rx, 1] = Convert.ToInt16((s.fft_stop) - (s.fft_start));
-                        UInt32 freq = Convert.ToUInt32((s.frequency) * 1000);
-                        UInt32 sr = Convert.ToUInt32((s.sr * 1000.0));
-
-                        debug("Freq: " + freq.ToString());
-                        debug("SR: " + sr.ToString());
-
-                        OnSignalSelected?.Invoke(rx, freq, sr);
+                        TuneToSignal(rx, s);
 
                     }
                 }

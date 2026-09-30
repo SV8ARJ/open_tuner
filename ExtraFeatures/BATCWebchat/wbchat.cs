@@ -34,6 +34,34 @@ namespace opentuner
             consoleFontBold = new Font("Consolas", _settings.chat_font_size + 1, FontStyle.Bold);
         }
 
+        // After the settings window with the chat open: the signal report template and the auto login are read where they
+        // are used, so they apply at once, the nick is used for the next login. The font size cannot be changed for the
+        // lines already written: the chat is built again then (BATCChat.CloseForRestart).
+        public void ApplySettings()
+        {
+            if (_settings.nickname.Length > 0)
+                txtNick.Text = _settings.nickname;
+        }
+
+        // Closing the window with the X only hides it (wbchat_FormClosing); this closes it for real and drops the connection.
+        private bool _shutdown = false;
+
+        public void Shutdown()
+        {
+            _shutdown = true;
+
+            try
+            {
+                client?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Chat: closing the connection failed");
+            }
+
+            Close();
+        }
+
         private SocketIO client = null;
 
         private void wbchat_Load(object sender, EventArgs e)
@@ -492,7 +520,7 @@ namespace opentuner
 
         private void wbchat_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (e.CloseReason == CloseReason.UserClosing)
+            if (e.CloseReason == CloseReason.UserClosing && !_shutdown)
             {
                 e.Cancel = true;
                 Hide();
