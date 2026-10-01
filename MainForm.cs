@@ -322,6 +322,7 @@ namespace opentuner
             // tab look was hard to read), one row per board when there are several (Pro, V2).
             tabControl1.SizeMode = TabSizeMode.Fixed;
             tabControl1.ItemSize = new System.Drawing.Size(0, 1);
+            splitContainer3.SizeChanged += (s, e) => FitLargeVideo();   // the large stream keeps its format when the window changes
             _tab_strip = new TabRowStrip(tabControl1);
             splitContainer1.Panel1.Controls.Add(_tab_strip);   // added after the TabControl (Dock Fill), so it docks at the top
 
@@ -404,6 +405,15 @@ namespace opentuner
             {
                 _mediaPlayers = ConfigureMediaPlayers(videoSource.GetVideoSourceCount(), _settings.mediaplayer_preferences, _settings.mediaplayer_windowed );
                 videoSource.ConfigureVideoPlayers(_mediaPlayers);
+
+                // the video size of every stream, for the large view (FitLargeVideo)
+                _video_sizes.Clear();
+                for (int i = 0; i < _mediaPlayers.Count; i++)
+                {
+                    int video_nr = i;
+                    if (_mediaPlayers[i] != null)
+                        _mediaPlayers[i].onVideoOut += (s, status) => VideoSizeReported(video_nr, status);
+                }
             });
             videoSource.ConfigureMediaPath(_settings.media_path);
 
@@ -1374,6 +1384,72 @@ namespace opentuner
         private int _large_video = -1;          // the stream shown large, -1 = the grid
         private bool _large_only = false;       // only that stream is shown
         private SplitContainer _extra_bottom_split;
+        private int _grid_splitter = -1;        // where the splitter between the two rows of the grid was, for "grid"
+        private readonly Dictionary<int, System.Drawing.Size> _video_sizes = new Dictionary<int, System.Drawing.Size>();
+
+        // A player reports the size of its video (any thread).
+        private void VideoSizeReported(int video_nr, MediaStatus status)
+        {
+            if (status == null || status.VideoWidth == 0 || status.VideoHeight == 0 || !IsHandleCreated)
+                return;
+
+            var size = new System.Drawing.Size((int)status.VideoWidth, (int)status.VideoHeight);
+
+            try
+            {
+                BeginInvoke(new MethodInvoker(() =>
+                {
+                    if (_video_sizes.TryGetValue(video_nr, out var known) && known == size)
+                        return;
+
+                    _video_sizes[video_nr] = size;
+                    if (video_nr == _large_video)
+                        FitLargeVideo();
+                }));
+            }
+            catch (Exception ex) when (ex is InvalidOperationException || ex is ObjectDisposedException)
+            {
+            }
+        }
+
+        // "Show large, the others below": the row of the large stream is as high as its video needs at the full width (the
+        // aspect ratio of the video, 16:9 until the player has reported the size), so it is shown completely. The other
+        // streams get the rest, but at least a fifth of the area.
+        private void FitLargeVideo()
+        {
+            if (_large_video < 0 || _large_only || splitContainer3.Panel2Collapsed || splitContainer3.Width <= 0)
+                return;
+
+            double ratio = 9.0 / 16.0;
+            if (_video_sizes.TryGetValue(_large_video, out var size) && size.Width > 0 && size.Height > 0)
+                ratio = (double)size.Height / size.Width;
+
+            int wanted = (int)Math.Round(splitContainer3.Width * ratio);
+            int smallest_bottom = Math.Max(splitContainer3.Panel2MinSize, splitContainer3.Height / 5);
+            int most = splitContainer3.Height - splitContainer3.SplitterWidth - smallest_bottom;
+            int distance = Math.Max(splitContainer3.Panel1MinSize, Math.Min(wanted, most));
+
+            if (distance > 0 && distance != splitContainer3.SplitterDistance)
+            {
+                try
+                {
+                    splitContainer3.SplitterDistance = distance;
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
+        }
+
+        // double click on a splitter: the rows get the same height again - except in the large view, where the large stream
+        // gets the height of its format
+        private void ResetRowSplitter()
+        {
+            if (_large_video >= 0 && !_large_only)
+                FitLargeVideo();
+            else
+                splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.5);
+        }
 
         private bool CanChangeVideoLayout => _fullscreen_form == null && _video_parts.Count >= 3 && _video_parts.All(p => p != null);
 
@@ -1406,6 +1482,9 @@ namespace opentuner
 
             int count = _video_parts.Count;
             var others = Enumerable.Range(0, count).Where(i => i != video_nr).ToList();
+
+            if (_large_video < 0)
+                _grid_splitter = splitContainer3.SplitterDistance;   // the grid comes back with the splitter where it was
 
             SuspendLayout();
             try
@@ -1460,6 +1539,8 @@ namespace opentuner
             {
                 ResumeLayout(true);
             }
+
+            FitLargeVideo();
         }
 
         private void ShowVideoGrid()
@@ -1484,6 +1565,17 @@ namespace opentuner
             finally
             {
                 ResumeLayout(true);
+            }
+
+            if (_grid_splitter > 0)
+            {
+                try
+                {
+                    splitContainer3.SplitterDistance = _grid_splitter;
+                }
+                catch (InvalidOperationException)
+                {
+                }
             }
         }
 
@@ -2023,7 +2115,7 @@ namespace opentuner
 
         private void splitContainer3_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.5);
+            ResetRowSplitter();
             if (splitContainer4.Panel2Collapsed == false)
                 splitContainer4.SplitterDistance = (int)(splitContainer4.Width * 0.5);
             if (splitContainer5.Panel2Collapsed == false)
@@ -2032,7 +2124,7 @@ namespace opentuner
 
         private void splitContainer4_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.5);
+            ResetRowSplitter();
             splitContainer4.SplitterDistance = (int)(splitContainer4.Width * 0.5);
             if (splitContainer5.Panel2Collapsed == false)
                 splitContainer5.SplitterDistance = (int)(splitContainer5.Width * 0.5);
@@ -2040,7 +2132,7 @@ namespace opentuner
 
         private void splitContainer5_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-            splitContainer3.SplitterDistance = (int)(splitContainer3.Height * 0.5);
+            ResetRowSplitter();
             if (splitContainer4.Panel2Collapsed == false)
                 splitContainer4.SplitterDistance = (int)(splitContainer4.Width * 0.5);
             splitContainer5.SplitterDistance = (int)(splitContainer5.Width * 0.5);
