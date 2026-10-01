@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using opentuner.Utilities;
 
@@ -238,6 +240,127 @@ namespace opentuner.MediaSources.Minitiouner
             return double.IsNaN(kbps) ? "-" : kbps.ToString("N3") + " kb/s";
         }
 
+        // Name and type of a PID: the fixed DVB PIDs, the PMT PIDs of the PAT and the streams of the PMTs.
+        private static void DescribePid(TSPidInfo pid, out string name, out string type)
+        {
+            switch (pid.Pid)
+            {
+                case 0x0000: name = "PAT"; type = ""; return;
+                case 0x0001: name = "CAT"; type = ""; return;
+                case 0x0002: name = "TSDT"; type = ""; return;
+                case 0x0010: name = "NIT"; type = ""; return;
+                case 0x0011: name = "SDT/BAT"; type = ""; return;
+                case 0x0012: name = "EIT"; type = ""; return;
+                case 0x0013: name = "RST"; type = ""; return;
+                case 0x0014: name = "TDT/TOT"; type = ""; return;
+                case 0x1FFF: name = "Null Packets"; type = "(stuffing)"; return;
+            }
+
+            if (pid.IsPmt)
+            {
+                name = "PMT";
+                type = "";
+                return;
+            }
+
+            if (pid.IsPcr && pid.StreamType == -1)
+            {
+                name = "PCR";
+                type = "(clock reference only)";
+                return;
+            }
+
+            switch (pid.StreamType)
+            {
+                case 0x01: name = "Video"; type = "MPEG-1"; return;
+                case 0x02: name = "Video"; type = "MPEG-2"; return;
+                case 0x10: name = "Video"; type = "MPEG-4"; return;
+                case 0x1B: name = "Video"; type = "H.264"; return;
+                case 0x24: name = "Video"; type = "H.265"; return;
+                case 0x03: name = "Audio"; type = "MPEG-1"; return;
+                case 0x04: name = "Audio"; type = "MPEG-2"; return;
+                case 0x0F: name = "Audio"; type = "AAC"; return;
+                case 0x11: name = "Audio"; type = "AAC LATM"; return;
+                case 0x81: name = "Audio"; type = "AC-3"; return;
+                case 0x87: name = "Audio"; type = "E-AC-3"; return;
+                case 0x06: name = "Data"; type = "private data"; return;
+                case -1: name = "Unknown"; type = "(not in a PMT)"; return;
+                default: name = "Data"; type = "type 0x" + pid.StreamType.ToString("X2"); return;
+            }
+        }
+
+        // "256" for one PID, "3 PIDs" for several, "" for none
+        private static string PidText(List<TSPidInfo> pids)
+        {
+            return pids.Count == 0 ? "" : pids.Count == 1 ? pids[0].Pid.ToString() : pids.Count + " PIDs";
+        }
+
+        // Hover text of a legend row: one line per PID with its number, name, type and the decoded content of its table.
+        private static string PidTip(List<TSPidInfo> pids)
+        {
+            const int MaxLines = 12;
+            var text = new System.Text.StringBuilder();
+
+            for (int i = 0; i < pids.Count; i++)
+            {
+                if (i == MaxLines)
+                {
+                    text.Append("... " + (pids.Count - MaxLines) + " more");
+                    break;
+                }
+
+                DescribePid(pids[i], out string name, out string type);
+                if (i > 0)
+                    text.Append('\n');
+
+                text.Append(pids[i].Pid.ToString().PadLeft(4) + " (0x" + pids[i].Pid.ToString("X4") + ")  " + name + (type == "" ? "" : " " + type));
+                if (!string.IsNullOrEmpty(pids[i].Info))
+                    text.Append(": " + pids[i].Info);
+            }
+
+            return text.ToString();
+        }
+
+        // Fills the Payload Diagram: packets of the Overhead per part (PAT, PMT, ...), the PIDs shown in the legend and the
+        // hover text of its rows.
+        private void UpdatePie(TSAnalysis analysis)
+        {
+            string[] names = PayloadPieControl.OverheadNames;
+            var parts = new double[names.Length];
+            var overhead_pids = new List<TSPidInfo>[names.Length];
+            var category_pids = new List<TSPidInfo>[3];   // video, audio, null packets (the Overhead has none of its own)
+            for (int i = 0; i < overhead_pids.Length; i++) overhead_pids[i] = new List<TSPidInfo>();
+            for (int i = 0; i < category_pids.Length; i++) category_pids[i] = new List<TSPidInfo>();
+
+            // the PIDs are sorted by PID, so the list of a part is too
+            foreach (TSPidInfo pid in analysis.Pids ?? new TSPidInfo[0])
+            {
+                if (pid.Category >= 1 && pid.Category <= 3)
+                {
+                    category_pids[pid.Category - 1].Add(pid);
+                    continue;
+                }
+
+                DescribePid(pid, out string name, out _);
+                int index = Array.IndexOf(names, name);
+                if (index < 0)
+                    index = names.Length - 1;
+
+                parts[index] += pid.Packets;
+                overhead_pids[index].Add(pid);
+            }
+
+            var value_pids = new[] { PidText(category_pids[0]), PidText(category_pids[1]), PidText(category_pids[2]), "" };
+            var value_tips = new[]
+            {
+                PidTip(category_pids[0]), PidTip(category_pids[1]), PidTip(category_pids[2]),
+                "Everything that is neither video, audio nor a null packet:\nthe tables (PAT, PMT, SDT, ...), the PCR and other PIDs, see the second pie chart",
+            };
+
+            _pie.SetData(_service_name, analysis.Video, analysis.Audio, analysis.Null, analysis.Overhead, parts,
+                         value_pids, overhead_pids.Select(PidText).ToArray(), value_tips, overhead_pids.Select(PidTip).ToArray());
+        }
+
         private void UpdateView()
         {
             TSParserThread parser = _get_parser();
@@ -266,6 +389,7 @@ namespace opentuner.MediaSources.Minitiouner
                 _service_name = "";
                 _service_provider = "";
                 analysis.Video = analysis.Audio = analysis.Null = analysis.Overhead = 0;
+                analysis.Pids = new TSPidInfo[0];
             }
 
             double expected = _expected_kbps;
@@ -293,7 +417,7 @@ namespace opentuner.MediaSources.Minitiouner
             // sums of the last TSAnalyzer.StatWindowSeconds seconds
             long total = analysis.Total;
             double seconds = Math.Max(1, analysis.Seconds);
-            _pie.SetData(_service_name, analysis.Video, analysis.Audio, analysis.Null, analysis.Overhead);
+            UpdatePie(analysis);
 
             if (total > 0)
             {
