@@ -1742,7 +1742,8 @@ namespace opentuner
                 _availableSources[comboAvailableSources.SelectedIndex].OverrideDefaultMuted(_settings.mute_at_startup);
             }
 
-            splitContainer1.SplitterDistance = _settings.gui_main_splitter_position;
+            // the saved width of the Properties panel, but wide enough for the tabs of all boards in one row
+            splitContainer1.SplitterDistance = Math.Max(_settings.gui_main_splitter_position, _tab_strip.PreferredWidth + 4);
 
             videoSource.UpdateFrequencyPresets(stored_frequencies);
 

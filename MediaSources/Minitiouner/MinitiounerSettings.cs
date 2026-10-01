@@ -42,6 +42,18 @@ namespace opentuner.MediaSources.Minitiouner
         // Receiver settings as MiniTioune shows them in its Extra Panel; set to the longmynd values (2 / 6 / false) to go back.
         public byte CarrierPhaseAlgo = 0;   // CARCFG.PH_DET_ALGO of carrier loop 1: 0 costas (MiniTioune), 1 citroen 1, 2 citroen 2 (longmynd)
         public int BasebandGainDb = 8;      // STV6120 BBGAIN in steps of 2 dB, 0..16 (MiniTioune 8, longmynd 6)
+        public bool Loop1On = true;         // STV0910 CARCFG.ROTAON: carrier loop 1 closed (reset value, MiniTioune "loop1 On")
+        public bool Loop2On = true;         // STV0910 CAR2CFG.ROTA2ON: carrier loop 2 closed (reset value)
+        public int Algo2 = 2;               // CAR2CFG.PH_DET_ALGO2: 0 algorithm 0 (CNR > 7 dB), 1 algorithm 1 (CNR < 7 dB), 2 native (recommended, reset value)
+        public int IqDc = 1;                // STV0910 AGC1CFG, DC offset compensation: 0 off, 1 on (reset value), 2 off with the last measure kept, 3 on and fixed
+        public int IqAmplitude = 1;         // AGC1CFG, amplitude imbalance compensation, same values
+        public int IqQuadrature = 1;        // AGC1CFG, quadrature error compensation, same values
+        public int NoiseData = 4;           // STV0910 NOSCFG.NOSDATA_BETA: noise collection speed on the data, 0 = 2^-20 (slowest) ... 4 = 2^-12 (default) ... 7 = 2^0 (fastest)
+        public int NoisePlh = 2;            // NOSCFG.NOSPLH_BETA: speed on the structure symbols (DVB-S2), 0 slowest, 1 = 2^-10, 2 = 2^-8 (as written so far), 3 = 2^0 (fastest)
+        public int ConstellationSource = 0; // STV0910 IQCONST.IQSYMB_SEL: 0 demod output ... 8 demod input (what the constellation of the Expert tab shows)
+        public int EqualizerDfe = 2;        // STV0910 EQUALCFG (DFE equalizer): 0 off, 1 frozen, 2 very slow (reset value, MiniTioune), 3 median, 4 fastest
+        public int EqualizerFfe = 1;        // STV0910 FFECFG (FFE equalizer, always on): 0 frozen, 1 very slow (reset value, MiniTioune), 2 median, 3 fastest
+        public int RefreshIntervalMs = 200; // pause between two status polls of the NIM thread (Chip tab: 125 / 200 / 300, MiniTioune "Refresh timing")
         public bool IqSwap = false;         // TNRCFG2.TUN_IQSWAP. On flips the sign of the carrier offset (CFR): Adopt CFR ran the wrong way and the
                                             // low symbol rate carrier window (0 .. +3 x SR) missed the carrier. MiniTioune's "Swap: ON" is not proven to be this bit.
         public bool MiniTiouneInit = false; // write MiniTioune's startup values for timing / carrier loop, FEC (docs/MiniTioune_I2C_Analyse_25kS.md)

@@ -267,10 +267,59 @@ namespace opentuner
         };
         public bool IqSwap = false;
 
+        // Equalizer speed (Chip tab). DFE: 0 off, 1 frozen, 2 very slow, 3 median, 4 fastest; FFE: 0 frozen, 1 very slow, 2 median, 3 fastest.
+        // The defaults are the reset values of EQUALCFG (0x41) and FFECFG (0x71).
+        public int EqualizerDfe = 2;
+        public int EqualizerFfe = 1;
+
+        // More receiver options of the Chip tab (all as in the data sheet; the defaults are the values written so far)
+        public bool Loop1On = true;
+        public bool Loop2On = true;
+        public int Algo2 = 2;
+        public int IqDc = 1;
+        public int IqAmplitude = 1;
+        public int IqQuadrature = 1;
+        public int NoiseData = 4;
+        public int NoisePlh = 2;
+        public int ConstellationSource = 0;
+
+        // CARCFG: bit 2 ROTAON (loop 1 closed), bits 1..0 PH_DET_ALGO; bit 6 as in the reset value 0x46
+        private byte CarCfg()
+        {
+            return (byte)(0x40 | (Loop1On ? 0x04 : 0x00) | (CarrierPhaseAlgo & 0x03));
+        }
+
+        // CAR2CFG: bit 2 ROTA2ON (loop 2 closed), bits 1..0 PH_DET_ALGO2; the other bits stay as basis (0x06 reset value, 0x26 in the low SR profile)
+        private byte Car2Cfg(byte basis)
+        {
+            return (byte)((basis & 0xF8) | (Loop2On ? 0x04 : 0x00) | (Math.Max(0, Math.Min(2, Algo2)) & 0x03));
+        }
+
+        // AGC1CFG: per function (DC offset, amplitude, quadrature) the pair FROZEN / CORRECT: 00 off, 01 on, 10 off with the last
+        // measure kept, 11 on and fixed - the value of the setting is that pair; reset value 0x54 = all on
+        private byte Agc1Cfg()
+        {
+            Func<int, int> pair = v => Math.Max(0, Math.Min(3, v));
+            return (byte)((pair(IqDc) << 6) | (pair(IqAmplitude) << 4) | (pair(IqQuadrature) << 2));
+        }
+
+        // NOSCFG: bit 5 DUMMYPL_NOSDATA (set, as in the init table), bits 4..3 NOSPLH_BETA, bits 2..0 NOSDATA_BETA (0x34 = default)
+        private byte NosCfg()
+        {
+            return (byte)(0x20 | ((Math.Max(0, Math.Min(3, NoisePlh)) & 0x03) << 3) | (Math.Max(0, Math.Min(7, NoiseData)) & 0x07));
+        }
+        private static readonly byte[] EqualizerMu = { 0, 1, 4, 7 };   // MU_EQUALDFE / MU_EQUALFFE: frozen, very slow, median, fastest
+
+        // Writes the carrier algorithm and the I/Q swap again (Chip tab); the caller holds the hardware lock.
+        public byte stv0910_reapply_receiver_options()
+        {
+            return stv0910_apply_receiver_options();
+        }
+
         private byte stv0910_apply_receiver_options()
         {
             byte err = 0;
-            byte carcfg = (byte)((0x46 & 0xFC) | (CarrierPhaseAlgo & 0x03));
+            byte carcfg = CarCfg();
             byte tnrcfg2 = (byte)(0x02 | (IqSwap ? 0x80 : 0x00));
 
             Log.Information("Flow: STV0910 carrier phase algorithm {0}, I/Q swap {1}", CarrierPhaseAlgo, IqSwap);
@@ -279,6 +328,34 @@ namespace opentuner
             if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P2_CARCFG, carcfg);
             if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P1_TNRCFG2, tnrcfg2);
             if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P2_TNRCFG2, tnrcfg2);
+
+            // EQUALCFG: bit 6 EQUAL_ON (0 = stop and reset), bits 2..0 MU_EQUALDFE; FFECFG: bit 6 EQUALFFE_ON (always on, it
+            // compensates group delay errors), bits 2..0 MU_EQUALFFE, the other bits as the reset value 0x71
+            int dfe = Math.Max(0, Math.Min(4, EqualizerDfe));
+            int ffe = Math.Max(0, Math.Min(3, EqualizerFfe));
+            byte equalcfg = dfe == 0 ? (byte)0x01 : (byte)(0x40 | EqualizerMu[dfe - 1]);
+            byte ffecfg = (byte)(0x70 | EqualizerMu[ffe]);
+
+            Log.Information("Flow: STV0910 equalizer DFE {0} (EQUALCFG 0x{1:X2}), FFE {2} (FFECFG 0x{3:X2})", dfe, equalcfg, ffe, ffecfg);
+
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P1_EQUALCFG, equalcfg);
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P2_EQUALCFG, equalcfg);
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P1_FFECFG, ffecfg);
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P2_FFECFG, ffecfg);
+
+            // carrier loop 2, I/Q compensation, noise speed and the constellation source
+            Log.Information("Flow: STV0910 loop 1 {0}, loop 2 {1} (algorithm {2}), I/Q compensation {3}/{4}/{5}, noise speed {6}/{7}, constellation {8}",
+                            Loop1On, Loop2On, Algo2, IqDc, IqAmplitude, IqQuadrature, NoiseData, NoisePlh, ConstellationSource);
+
+            byte iqconst = (byte)Math.Max(0, Math.Min(8, ConstellationSource));
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P1_CAR2CFG, Car2Cfg(0x06));
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P2_CAR2CFG, Car2Cfg(0x06));
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P1_AGC1CFG, Agc1Cfg());
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P2_AGC1CFG, Agc1Cfg());
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P1_NOSCFG, NosCfg());
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P2_NOSCFG, NosCfg());
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P1_IQCONST, iqconst);
+            if (err == 0) err = stv0910_write_reg(stv0910_regs.RSTV0910_P2_IQCONST, iqconst);
 
             if (MiniTiouneInit)
             {
@@ -505,7 +582,7 @@ namespace opentuner
             if (err == 0) err = stv0910_write_reg(cfrlow0, 0x00);
             if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CARFREQ : stv0910_regs.RSTV0910_P1_CARFREQ, 0xAC);
             if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CARHDR : stv0910_regs.RSTV0910_P1_CARHDR, 0x40);
-            if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CAR2CFG : stv0910_regs.RSTV0910_P1_CAR2CFG, 0x26);
+            if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CAR2CFG : stv0910_regs.RSTV0910_P1_CAR2CFG, Car2Cfg(0x26));
 
             return err;
         }
@@ -529,7 +606,7 @@ namespace opentuner
             if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CFRIBASE0 : stv0910_regs.RSTV0910_P1_CFRIBASE0, 0xF5);
             if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CARFREQ : stv0910_regs.RSTV0910_P1_CARFREQ, (byte)(MiniTiouneInit ? 0x28 : 0x79));
             if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CARHDR : stv0910_regs.RSTV0910_P1_CARHDR, 0x1C);
-            if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CAR2CFG : stv0910_regs.RSTV0910_P1_CAR2CFG, 0x06);
+            if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CAR2CFG : stv0910_regs.RSTV0910_P1_CAR2CFG, Car2Cfg(0x06));
 
             return err;
         }
@@ -1305,6 +1382,56 @@ namespace opentuner
 
         }
 
+        // The coefficients of the equalizers (EQUAIx / EQUAQx = DFE, 8 taps, FFE_ACCIx / FFE_ACCQx = FFE, 4 taps), signed 8 bit,
+        // I and Q of a tap one after the other: dfe has 16 values, ffe 8.
+        public byte stv0910_read_equalizer(byte demod, sbyte[] dfe, sbyte[] ffe)
+        {
+            byte err = 0;
+            bool top = demod == STV0910_DEMOD_TOP;
+            ushort dfe_base = top ? stv0910_regs.RSTV0910_P2_EQUAI1 : stv0910_regs.RSTV0910_P1_EQUAI1;
+            ushort ffe_base = top ? stv0910_regs.RSTV0910_P2_FFEI1 : stv0910_regs.RSTV0910_P1_FFEI1;
+            byte value = 0;
+
+            for (int i = 0; i < dfe.Length && err == 0; i++)
+            {
+                err = stv0910_read_reg((ushort)(dfe_base + i), ref value);
+                dfe[i] = unchecked((sbyte)value);
+            }
+
+            for (int i = 0; i < ffe.Length && err == 0; i++)
+            {
+                err = stv0910_read_reg((ushort)(ffe_base + i), ref value);
+                ffe[i] = unchecked((sbyte)value);
+            }
+
+            if (err != 0) Log.Information("ERROR: STV0910 read equalizer");
+
+            return err;
+        }
+
+        // The I/Q compensation as the demodulator measures it: values[0] DC on I (IDCCOMP, signed, unit 1/2 ADC step, 0 = nothing to
+        // correct), values[1] DC on Q, values[2] amplitude of Q against I (AGC1AMM, 0x80 = no correction, compensation = value / 0x80),
+        // values[3] quadrature (AGC1QUAD, signed, 0 = no correction).
+        public byte stv0910_read_iq_compensation(byte demod, int[] values)
+        {
+            byte err = 0;
+            bool top = demod == STV0910_DEMOD_TOP;
+            byte value = 0;
+
+            err = stv0910_read_reg(top ? stv0910_regs.RSTV0910_P2_IDCCOMP : stv0910_regs.RSTV0910_P1_IDCCOMP, ref value);
+            values[0] = unchecked((sbyte)value);
+            if (err == 0) err = stv0910_read_reg(top ? stv0910_regs.RSTV0910_P2_QDCCOMP : stv0910_regs.RSTV0910_P1_QDCCOMP, ref value);
+            values[1] = unchecked((sbyte)value);
+            if (err == 0) err = stv0910_read_reg(top ? stv0910_regs.RSTV0910_P2_AGC1AMM : stv0910_regs.RSTV0910_P1_AGC1AMM, ref value);
+            values[2] = value;
+            if (err == 0) err = stv0910_read_reg(top ? stv0910_regs.RSTV0910_P2_AGC1QUAD : stv0910_regs.RSTV0910_P1_AGC1QUAD, ref value);
+            values[3] = unchecked((sbyte)value);
+
+            if (err != 0) Log.Information("ERROR: STV0910 read I/Q compensation");
+
+            return err;
+        }
+
         public byte stv0910_read_constellation(byte demod, ref byte i, ref byte q)
         {
             byte err = 0;
@@ -1382,7 +1509,7 @@ namespace opentuner
             int cfr_up = lowsr_cfr_up[index];
             byte err = 0;
 
-            if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CARCFG : stv0910_regs.RSTV0910_P1_CARCFG, (byte)((0x46 & 0xFC) | (CarrierPhaseAlgo & 0x03)));
+            if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CARCFG : stv0910_regs.RSTV0910_P1_CARCFG, CarCfg());
             if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CFRUP1 : stv0910_regs.RSTV0910_P1_CFRUP1, (byte)(cfr_up >> 8));
             if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CFRUP0 : stv0910_regs.RSTV0910_P1_CFRUP0, (byte)(cfr_up & 0xFF));
             if (err == 0) err = stv0910_write_reg(top ? stv0910_regs.RSTV0910_P2_CFRLOW1 : stv0910_regs.RSTV0910_P1_CFRLOW1, 0x00);

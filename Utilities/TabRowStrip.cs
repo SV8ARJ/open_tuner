@@ -76,6 +76,9 @@ namespace opentuner.Utilities
             Invalidate();
         }
 
+        // Width the widest row needs (title and all its tabs), so the strip does not have to wrap.
+        public int PreferredWidth { get; private set; }
+
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
@@ -95,6 +98,11 @@ namespace opentuner.Utilities
                     title_width = Math.Max(title_width, TextRenderer.MeasureText(group, _title_font).Width);
                 title_width += 14;
             }
+
+            int widest = 0;
+            foreach (string group in groups)
+                widest = Math.Max(widest, _entries.Count(e => e.Group == group));
+            PreferredWidth = title_width + widest * TabWidth;
 
             int y = 0;
             foreach (string group in groups)

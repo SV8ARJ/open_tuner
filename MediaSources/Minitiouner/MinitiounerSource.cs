@@ -32,6 +32,12 @@ namespace opentuner.MediaSources.Minitiouner
         public CircularBuffer ts_data_queue = new CircularBuffer(GlobalDefines.CircularBufferStartingCapacity);
         public CircularBuffer ts_data_queue2 = new CircularBuffer(GlobalDefines.CircularBufferStartingCapacity);
 
+        // bytes waiting in the TS data queue of that tuner (Chip tab)
+        public int TsBufferBytes(int device)
+        {
+            return (device == 0 ? ts_data_queue : ts_data_queue2).Count;
+        }
+
         public TSThread ts_thread;
         public TSThread ts_thread2;
 

@@ -161,6 +161,10 @@ namespace opentuner.MediaSources.Minitiouner
         private TsInfoTunerView _tsinfo_1 = null;
         private TsInfoTunerView _tsinfo_2 = null;
 
+        // "Chip" tab: receiver settings of this board (see ChipSettingsView)
+        private Panel _chip_panel = null;
+        private ChipSettingsView _chip_settings = null;
+
         // "Special" tab: symbol rate buttons, derotator and the tuning trim per tuner
         private Panel _frequency_panel = null;
         private FrequencyTunerView _frequency_1 = null;
@@ -178,6 +182,9 @@ namespace opentuner.MediaSources.Minitiouner
 
             if (_frequency_panel != null)
                 tabs.Add(new KeyValuePair<string, Control>("Special", _frequency_panel));
+
+            if (_chip_panel != null)
+                tabs.Add(new KeyValuePair<string, Control>("Chip", _chip_panel));   // rarely used, so the last one
 
             return tabs;
         }
@@ -199,6 +206,17 @@ namespace opentuner.MediaSources.Minitiouner
             _tsinfo_1 = new TsInfoTunerView(TunerLabel(0), _tsinfo_panel, () => ts_parser_thread);
             if (ts_devices == 2)
                 _tsinfo_2 = new TsInfoTunerView(TunerLabel(1), _tsinfo_panel, () => ts_parser_thread2);
+
+            // "Chip" tab: the receiver settings of this board
+            _chip_panel = new Panel();
+            _chip_panel.Dock = DockStyle.Fill;
+            _chip_panel.AutoScroll = true;
+            _chip_settings = new ChipSettingsView(_chip_panel, _settings, ts_devices, TsBufferBytes);
+            _chip_settings.SettingsChanged += () =>
+            {
+                SaveSettingsFiles();
+                nim_thread?.RequestReceiverOptions(_settings);
+            };
 
             // "Special" tab: Tuner 1, Tuner 2, then Minitiouner Properties
             _frequency_1 = new FrequencyTunerView(TunerLabel(0), _frequency_panel);
@@ -804,6 +822,8 @@ namespace opentuner.MediaSources.Minitiouner
                               new_status.T1P2_agc1_gain, new_status.T1P2_agc2_gain);
             _tsinfo_1?.SetSignal(ExpectedBitrateKbps(new_status.T1P2_demod_status, new_status.T1P2_modcode, current_sr_0, new_status.T1P2_short_frame, new_status.T1P2_pilots),
                                  ChipBitrateKbps(new_status.T1P2_demod_status, new_status.T1P2_ts_bitrate_raw, new_status.mclk_hz));
+            _chip_settings?.UpdateEqualizer(0, new_status.T1P2_equalizer_dfe, new_status.T1P2_equalizer_ffe);
+            _chip_settings?.UpdateIq(0, new_status.T1P2_iq_compensation);
             _frequency_1?.SetRequestedRate(current_sr_0);
             _frequency_1?.Update(new_status.T1P2_demod_status, new_status.T1P2_frequency_carrier_offset,
                                  new_status.T1P2_carrier_low_hz, new_status.T1P2_carrier_up_hz, new_status.T1P2_symbol_rate,
@@ -819,6 +839,8 @@ namespace opentuner.MediaSources.Minitiouner
                               new_status.T2P1_agc1_gain, new_status.T2P1_agc2_gain);
             _tsinfo_2?.SetSignal(ExpectedBitrateKbps(new_status.T2P1_demod_status, new_status.T2P1_modcode, current_sr_1, new_status.T2P1_short_frame, new_status.T2P1_pilots),
                                  ChipBitrateKbps(new_status.T2P1_demod_status, new_status.T2P1_ts_bitrate_raw, new_status.mclk_hz));
+            _chip_settings?.UpdateEqualizer(1, new_status.T2P1_equalizer_dfe, new_status.T2P1_equalizer_ffe);
+            _chip_settings?.UpdateIq(1, new_status.T2P1_iq_compensation);
             _frequency_2?.SetRequestedRate(current_sr_1);
             _frequency_2?.Update(new_status.T2P1_demod_status, new_status.T2P1_frequency_carrier_offset,
                                  new_status.T2P1_carrier_low_hz, new_status.T2P1_carrier_up_hz, new_status.T2P1_symbol_rate,

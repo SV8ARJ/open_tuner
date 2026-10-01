@@ -163,6 +163,31 @@ namespace opentuner
             _stv0910.CarrierPhaseAlgo = (byte)Math.Max(0, Math.Min(2, (int)s.CarrierPhaseAlgo));
             _stv0910.IqSwap = s.IqSwap;
             _stv6120.BasebandGainCode = (byte)Math.Max(0, Math.Min(8, s.BasebandGainDb / 2));
+            RefreshIntervalMs = Math.Max(50, Math.Min(1000, s.RefreshIntervalMs));
+            _stv0910.EqualizerDfe = Math.Max(0, Math.Min(4, s.EqualizerDfe));
+            _stv0910.EqualizerFfe = Math.Max(0, Math.Min(3, s.EqualizerFfe));
+            _stv0910.Loop1On = s.Loop1On;
+            _stv0910.Loop2On = s.Loop2On;
+            _stv0910.Algo2 = Math.Max(0, Math.Min(2, s.Algo2));
+            _stv0910.IqDc = Math.Max(0, Math.Min(3, s.IqDc));
+            _stv0910.IqAmplitude = Math.Max(0, Math.Min(3, s.IqAmplitude));
+            _stv0910.IqQuadrature = Math.Max(0, Math.Min(3, s.IqQuadrature));
+            _stv0910.NoiseData = Math.Max(0, Math.Min(7, s.NoiseData));
+            _stv0910.NoisePlh = Math.Max(0, Math.Min(3, s.NoisePlh));
+            _stv0910.ConstellationSource = Math.Max(0, Math.Min(8, s.ConstellationSource));
+        }
+
+        // Pause between two status polls (Chip tab, "Refresh timing" of MiniTioune)
+        public volatile int RefreshIntervalMs = 200;
+
+        // The Chip tab changed the receiver settings: the worker thread (it owns the I2C access) writes the options to the
+        // chips again and tunes both tuners again, so the baseband gain and the carrier loop settings take effect at once.
+        private volatile bool _reapply_options = false;
+
+        public void RequestReceiverOptions(MinitiounerSettings s)
+        {
+            ApplyReceiverSettings(s);
+            _reapply_options = true;
         }
 
         public NimThread(ConcurrentQueue<TunerConfig> _config_queue, MTHardwareInterface _hardware, SourceStatusCallback _status_callback, bool _no_lna, bool _enable_digole = false, byte _digole_i2c_address = 0x27, string _device_name = "", uint[] _frequency_offsets = null, string _digole_callsign = "", string _digole_locator = "", string _digole_name = "")
@@ -431,6 +456,52 @@ namespace opentuner
             return data;
         }
 
+        // Equalizer coefficients of both demodulators for the Chip tab: read once a second and only while locked.
+        private long _eq_next_read = 0;
+        private readonly sbyte[][] _eq_dfe = new sbyte[2][];
+        private readonly sbyte[][] _eq_ffe = new sbyte[2][];
+        private readonly int[][] _iq_comp = new int[2][];
+
+        private void read_equalizers(TunerStatus status)
+        {
+            long now = Environment.TickCount64;
+
+            if (now >= _eq_next_read)
+            {
+                _eq_next_read = now + 1000;
+
+                byte[] states = { status.T1P2_demod_status, status.T2P1_demod_status };
+                byte[] demods = { stv0910.STV0910_DEMOD_TOP, stv0910.STV0910_DEMOD_BOTTOM };
+
+                for (int i = 0; i < 2; i++)
+                {
+                    if (states[i] != stv0910.DEMOD_S && states[i] != stv0910.DEMOD_S2)
+                    {
+                        _eq_dfe[i] = null;
+                        _eq_ffe[i] = null;
+                        _iq_comp[i] = null;
+                        continue;
+                    }
+
+                    var dfe = new sbyte[16];
+                    var ffe = new sbyte[8];
+                    bool ok = _stv0910.stv0910_read_equalizer(demods[i], dfe, ffe) == 0;
+                    _eq_dfe[i] = ok ? dfe : null;
+                    _eq_ffe[i] = ok ? ffe : null;
+
+                    var iq = new int[4];
+                    _iq_comp[i] = _stv0910.stv0910_read_iq_compensation(demods[i], iq) == 0 ? iq : null;
+                }
+            }
+
+            status.T1P2_equalizer_dfe = _eq_dfe[0];
+            status.T1P2_equalizer_ffe = _eq_ffe[0];
+            status.T2P1_equalizer_dfe = _eq_dfe[1];
+            status.T2P1_equalizer_ffe = _eq_ffe[1];
+            status.T1P2_iq_compensation = _iq_comp[0];
+            status.T2P1_iq_compensation = _iq_comp[1];
+        }
+
         // where the last status cycle spent its time, for the warning about a slow cycle
         private long _last_digole_ms;
         private long _last_callback_ms;
@@ -680,6 +751,8 @@ namespace opentuner
             // point in the I2C traffic otherwise), null = nothing to show
             nim_status.T1P2_constellation = err == 0 ? read_constellation(stv0910.STV0910_DEMOD_TOP, nim_status.T1P2_demod_status) : null;
             nim_status.T2P1_constellation = err == 0 ? read_constellation(stv0910.STV0910_DEMOD_BOTTOM, nim_status.T2P1_demod_status) : null;
+            if (err == 0)
+                read_equalizers(nim_status);
 
             /* LDPC Error Count */
             UInt32 errors_ldpc_count = 0;
@@ -892,6 +965,23 @@ namespace opentuner
 
                 while (!_stopRequested)
                 {
+                    if (_reapply_options && initialConfig)
+                    {
+                        _reapply_options = false;
+
+                        byte reapply_err;
+                        lock (HwLock)
+                            reapply_err = _stv0910.stv0910_reapply_receiver_options();
+
+                        Log.Information("Nim Thread: receiver options written again (err " + reapply_err + "), tuning again");
+
+                        for (int i = 0; i < current_config.Length; i++)
+                        {
+                            if (current_config[i] != null)
+                                config_queue.Enqueue(current_config[i]);
+                        }
+                    }
+
                     if (initialConfig == false)
                     {
                         Log.Information("Nim Thread: Initial Config");
@@ -1089,7 +1179,7 @@ namespace opentuner
                         {
                             Log.Debug("Nim Thread: get_nim_status() took " + status_sw.ElapsedMilliseconds + "ms, _stopRequested=" + _stopRequested);
                         }
-                        Thread.Sleep(200);
+                        Thread.Sleep(RefreshIntervalMs);
                     }
                 }
 
