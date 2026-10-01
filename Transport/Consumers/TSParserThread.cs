@@ -36,6 +36,9 @@ namespace opentuner
         // Continuity/transport error/sync loss counters over the last few seconds (issue #19).
         public readonly TSHealth Health = new TSHealth();
 
+        // Packets by category (video / audio / null / overhead) for the "TS Info" tab (issue #61).
+        public readonly TSAnalyzer Analyzer = new TSAnalyzer();
+
         // Last continuity counter seen per PID, -1 = none yet.
         private readonly sbyte[] _last_cc = CreateLastCc();
 
@@ -167,6 +170,8 @@ namespace opentuner
                                 if (ts_pid != TS_PID_NULL && (ts_packet[3] & 0xC0) != 0)   // transport_scrambling_control
                                     Health.AddScrambled();
 
+                                Analyzer.AddPacket(ts_packet, ts_pid);   // "TS Info" tab: packets by category
+
                                 UInt32 ts_adaption_field_flag = (UInt32)(ts_packet[3] & 0x20) >> 5;
 
                                 byte ts_payload_content_offset = 4;
@@ -260,6 +265,8 @@ namespace opentuner
                                         prevServiceProvider = service_provider;
 
                                         Health.Reset();
+                                        Analyzer.ForgetServices();
+                                        Analyzer.ResetStats();
                                     }
 
                                     if (ts_data_callback != null)

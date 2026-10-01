@@ -340,10 +340,12 @@ namespace opentuner.MediaSources.Minitiouner
 
             _tuner1_properties?.SetHighlight(first);
             _expert_1?.SetHighlight(first);
+            _tsinfo_1?.SetHighlight(first);
             _frequency_1?.SetHighlight(first);
 
             _tuner2_properties?.SetHighlight(second);
             _expert_2?.SetHighlight(second);
+            _tsinfo_2?.SetHighlight(second);
             _frequency_2?.SetHighlight(second);
         }
 

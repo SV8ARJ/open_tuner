@@ -250,6 +250,11 @@ namespace opentuner.MediaSources.Minitiouner
                 board.ToggleMute(local);
         }
 
+        public override bool? IsMuted(int device)
+        {
+            return Resolve(device, out var board, out int local) ? board.IsMuted(local) : null;
+        }
+
         public override Dictionary<string, string> GetSignalData(int device)
         {
             return Resolve(device, out var board, out int local) ? board.GetSignalData(local) : new Dictionary<string, string>();

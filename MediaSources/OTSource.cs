@@ -66,6 +66,9 @@ namespace opentuner.MediaSources
         public abstract void UpdateVolume(int device, int volume_delta);
         public abstract void ToggleMute(int device);
 
+        // Whether that tuner's audio is muted, null if the source can't mute it with ToggleMute (no menu entry then).
+        public virtual bool? IsMuted(int device) { return null; }
+
         public abstract Dictionary<string, string> GetSignalData(int device);
 
         public abstract void StartStreaming(int device);

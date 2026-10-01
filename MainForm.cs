@@ -318,10 +318,12 @@ namespace opentuner
             // swith logging level back
             Program.levelSwitch.MinimumLevel = lastMinimumLevel;
 
-            // the active tab is drawn orange, the 3D tab look was hard to read
-            tabControl1.DrawMode = TabDrawMode.OwnerDrawFixed;
-            tabControl1.ItemSize = new System.Drawing.Size(84, 26);
-            tabControl1.DrawItem += TabControl1_DrawItem;
+            // The tab headers of the TabControl are hidden, TabRowStrip draws them instead: the active tab orange (the 3D
+            // tab look was hard to read), one row per board when there are several (Pro, V2).
+            tabControl1.SizeMode = TabSizeMode.Fixed;
+            tabControl1.ItemSize = new System.Drawing.Size(0, 1);
+            _tab_strip = new TabRowStrip(tabControl1);
+            splitContainer1.Panel1.Controls.Add(_tab_strip);   // added after the TabControl (Dock Fill), so it docks at the top
 
             Application.AddMessageFilter(this);
 
@@ -440,6 +442,8 @@ namespace opentuner
                     }
                 });
 
+                _tab_strip.Rebuild();
+
                 tabControl1.Width = 100;
                 DiagnosticsHelper.Measure("Connect: tabs, update (repaint)", () => tabControl1.Update());
             });
@@ -448,22 +452,7 @@ namespace opentuner
             return true;
         }
 
-        // Owner-drawn tab headers: the selected tab has a light orange background, the others are plain.
-        private void TabControl1_DrawItem(object sender, DrawItemEventArgs e)
-        {
-            var tabs = (TabControl)sender;
-            bool selected = e.Index == tabs.SelectedIndex;
-            System.Drawing.Rectangle bounds = tabs.GetTabRect(e.Index);
-
-            using (var back = new System.Drawing.SolidBrush(selected ? System.Drawing.Color.FromArgb(255, 204, 128) : System.Drawing.SystemColors.Control))
-            {
-                e.Graphics.FillRectangle(back, bounds);
-            }
-
-            TextRenderer.DrawText(e.Graphics, tabs.TabPages[e.Index].Text, tabs.Font, bounds,
-                                  selected ? System.Drawing.Color.Black : System.Drawing.SystemColors.ControlText,
-                                  TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-        }
+        private TabRowStrip _tab_strip;
 
         private void VideoSource_OnSourceData(int video_nr, OTSourceData properties, string description)
         {
@@ -1220,25 +1209,146 @@ namespace opentuner
                 return;
             }
 
-            // With three or more streams a menu offers the large view of this stream, next to the info line.
-            // (In full screen, or with fewer streams, the right click still switches the info line at once.)
-            if (CanChangeVideoLayout)
+            // A menu offers the tabs of this tuner (Properties, Expert, TS Info, Special), the large view of this stream
+            // (with three or more streams) and the info line. (In full screen, or when there is nothing but the info line to
+            // choose, the right click still switches the info line at once.)
+            var tab_pages = TunerTabPages(video_nr);
+            if (CanChangeVideoLayout || tab_pages.Count > 0)
             {
                 var menu = new ContextMenuStrip();
-                if (_large_video != video_nr || _large_only)
-                    menu.Items.Add("Show large, the others below", null, (s, ev) => ShowLargeVideo(video_nr, false));
-                if (_large_video != video_nr || !_large_only)
-                    menu.Items.Add("Show only this stream", null, (s, ev) => ShowLargeVideo(video_nr, true));
-                if (_large_video >= 0)
-                    menu.Items.Add("Show all streams (grid)", null, (s, ev) => ShowVideoGrid());
-                menu.Items.Add(new ToolStripSeparator());
+                if (tab_pages.Count > 0)
+                {
+                    foreach (var entry in tab_pages)
+                    {
+                        TabPage page = entry.Value;
+                        var item = new ToolStripMenuItem(entry.Key, null, (s, ev) => { HighlightTuner(video_nr); tabControl1.SelectedTab = page; });
+                        item.Checked = tabControl1.SelectedTab == page;
+                        menu.Items.Add(item);
+                    }
+                }
+
+                // audio shortcuts as a group of their own below the tabs: this stream on / off, only this stream, all streams off
+                bool? muted = videoSource.IsMuted(video_nr);
+                if (muted.HasValue && _fullscreen_form == null)
+                {
+                    if (menu.Items.Count > 0)
+                        menu.Items.Add(new ToolStripSeparator());
+
+                    menu.Items.Add(muted.Value ? "Unmute this stream" : "Mute this stream", null, (s, ev) => videoSource.ToggleMute(video_nr));
+
+                    if (videoSource.GetVideoSourceCount() > 1)
+                    {
+                        menu.Items.Add("Audio only this stream", null, (s, ev) => SetAudioOnly(video_nr));
+                        menu.Items.Add("Mute all streams", null, (s, ev) => SetAudioOnly(-1));
+                    }
+                }
+
+                if (menu.Items.Count > 0)
+                    menu.Items.Add(new ToolStripSeparator());
+
+                if (CanChangeVideoLayout)
+                {
+                    if (_large_video != video_nr || _large_only)
+                        menu.Items.Add("Show large, the others below", null, (s, ev) => ShowLargeVideo(video_nr, false));
+                    if (_large_video != video_nr || !_large_only)
+                        menu.Items.Add("Show only this stream", null, (s, ev) => ShowLargeVideo(video_nr, true));
+                    if (_large_video >= 0)
+                        menu.Items.Add("Show all streams (grid)", null, (s, ev) => ShowVideoGrid());
+                    menu.Items.Add(new ToolStripSeparator());
+                }
+
                 menu.Items.Add(InfoLineVisible(video_nr) ? "Hide info line (wheel click)" : "Show info line (wheel click)", null, (s, ev) => ToggleInfoLine(video_nr));
                 menu.Closed += (s, ev) => BeginInvoke(new MethodInvoker(menu.Dispose));
                 menu.Show(Cursor.Position);
+                CloseMenuWhenMouseLeaves(menu, video_nr, (Control)sender);
                 return;
             }
 
             ToggleInfoLine(video_nr);
+        }
+
+        // The menu of the video closes by itself when the mouse is more than this far (pixels) from it, or when it
+        // moves over the field of another stream.
+        private const int VideoMenuCloseDistance = 100;
+
+        private void CloseMenuWhenMouseLeaves(ContextMenuStrip menu, int video_nr, Control own_video)
+        {
+            var timer = new System.Windows.Forms.Timer { Interval = 100 };
+            timer.Tick += (s, ev) =>
+            {
+                if (menu.IsDisposed || !menu.Visible)
+                {
+                    timer.Stop();
+                    return;
+                }
+
+                System.Drawing.Point mouse = Cursor.Position;
+                System.Drawing.Rectangle bounds = menu.Bounds;   // screen coordinates
+
+                if (bounds.Contains(mouse))
+                    return;
+
+                int dx = Math.Max(Math.Max(bounds.Left - mouse.X, mouse.X - bounds.Right), 0);
+                int dy = Math.Max(Math.Max(bounds.Top - mouse.Y, mouse.Y - bounds.Bottom), 0);
+                bool too_far = dx * dx + dy * dy > VideoMenuCloseDistance * VideoMenuCloseDistance;
+
+                bool over_other_stream = false;
+                for (int i = 0; i < _video_parts.Count && i < video_panels.Length; i++)
+                {
+                    if (i == video_nr || _video_parts[i] == null)
+                        continue;
+
+                    if (video_panels[i].RectangleToScreen(video_panels[i].ClientRectangle).Contains(mouse) && video_panels[i].Visible)
+                        over_other_stream = true;
+                }
+
+                if (too_far || over_other_stream)
+                    menu.Close();
+            };
+            menu.Closed += (s, ev) => { timer.Stop(); timer.Dispose(); };
+            timer.Start();
+        }
+
+        // The tabs of this tuner (name without the board suffix, page) for the right click menu: Properties, Expert, TS Info
+        // and Special, as far as the source has them. With several boards the pages carry the board name ("Expert-V2").
+        private List<KeyValuePair<string, TabPage>> TunerTabPages(int video_nr)
+        {
+            var result = new List<KeyValuePair<string, TabPage>>();
+
+            string properties_title = videoSource?.GetPropertiesTabTitle(video_nr);
+            if (_fullscreen_form != null || properties_title == null || !properties_title.StartsWith("Properties"))
+                return result;
+
+            string suffix = properties_title.Substring("Properties".Length);   // "" or "-Pro"
+
+            foreach (string name in new[] { "Properties", "Expert", "TS Info", "Special" })
+            {
+                foreach (TabPage page in tabControl1.TabPages)
+                {
+                    if (page.Text == name + suffix)
+                    {
+                        result.Add(new KeyValuePair<string, TabPage>(name, page));
+                        break;
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        // Only the audio of this stream is on, all others are muted; -1 mutes everything.
+        private void SetAudioOnly(int video_nr)
+        {
+            for (int device = 0; device < videoSource.GetVideoSourceCount(); device++)
+            {
+                bool? muted = videoSource.IsMuted(device);
+                if (!muted.HasValue)
+                    continue;
+
+                bool want_muted = device != video_nr;
+                if (muted.Value != want_muted)
+                    videoSource.ToggleMute(device);
+            }
         }
 
         private bool InfoLineVisible(int video_nr)

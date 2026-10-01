@@ -156,6 +156,11 @@ namespace opentuner.MediaSources.Minitiouner
         private ExpertTunerView _expert_1 = null;
         private ExpertTunerView _expert_2 = null;
 
+        // "TS Info" tab: bit rate over time, Payload Diagram and statistics of the decoded TS per tuner (see TsInfoTunerView)
+        private Panel _tsinfo_panel = null;
+        private TsInfoTunerView _tsinfo_1 = null;
+        private TsInfoTunerView _tsinfo_2 = null;
+
         // "Special" tab: symbol rate buttons, derotator and the tuning trim per tuner
         private Panel _frequency_panel = null;
         private FrequencyTunerView _frequency_1 = null;
@@ -167,6 +172,9 @@ namespace opentuner.MediaSources.Minitiouner
 
             if (_expert_panel != null)
                 tabs.Add(new KeyValuePair<string, Control>("Expert", _expert_panel));
+
+            if (_tsinfo_panel != null)
+                tabs.Add(new KeyValuePair<string, Control>("TS Info", _tsinfo_panel));
 
             if (_frequency_panel != null)
                 tabs.Add(new KeyValuePair<string, Control>("Special", _frequency_panel));
@@ -183,6 +191,14 @@ namespace opentuner.MediaSources.Minitiouner
                 _expert_2 = new ExpertTunerView(TunerLabel(1), _expert_panel);
 
             _switches_groupBox.BringToFront();
+
+            // "TS Info" tab: Tuner 1, Tuner 2
+            _tsinfo_panel = new Panel();
+            _tsinfo_panel.Dock = DockStyle.Fill;
+            _tsinfo_panel.AutoScroll = true;
+            _tsinfo_1 = new TsInfoTunerView(TunerLabel(0), _tsinfo_panel, () => ts_parser_thread);
+            if (ts_devices == 2)
+                _tsinfo_2 = new TsInfoTunerView(TunerLabel(1), _tsinfo_panel, () => ts_parser_thread2);
 
             // "Special" tab: Tuner 1, Tuner 2, then Minitiouner Properties
             _frequency_1 = new FrequencyTunerView(TunerLabel(0), _frequency_panel);
@@ -619,6 +635,7 @@ namespace opentuner.MediaSources.Minitiouner
             _tuner.UpdateValue("service_name", ts_status.ServiceName);
             _tuner.UpdateValue("service_name_provider", ts_status.ServiceProvider);
             _tuner.UpdateValue("null_packets", ts_status.NullPacketsPerc.ToString() + "%");
+            (tuner == 1 ? _tsinfo_1 : _tsinfo_2)?.SetService(ts_status.ServiceName, ts_status.ServiceProvider);
 
             if (tuner == 1)
             {
@@ -705,6 +722,28 @@ namespace opentuner.MediaSources.Minitiouner
             return needed.ToString("N1") + " dB [D " + (mer - needed).ToString("N1") + "]";
         }
 
+        // TS bit rate the received MODCOD can carry at the requested symbol rate (TS Info tab), NaN while there is no real MODCOD.
+        private static double ExpectedBitrateKbps(byte demod_status, uint modcode, uint symbol_rate_ks, bool short_frame, bool pilots)
+        {
+            string name;
+            if (demod_status == stv0910.DEMOD_S2 && modcode != 0 && lookups.modcod_lookup_dvbs2.TryGetValue(modcode, out name))
+                return ExpectedBitrate.Get(true, name, symbol_rate_ks, short_frame, pilots) / 1000.0;
+
+            if (demod_status == stv0910.DEMOD_S && lookups.modcod_lookup_dvbs.TryGetValue(modcode, out name))
+                return ExpectedBitrate.Get(false, name, symbol_rate_ks, false, false) / 1000.0;
+
+            return double.NaN;
+        }
+
+        // TSBITRATE register of the demodulator in kbit/s (TS Info tab), NaN while there is no lock.
+        private static double ChipBitrateKbps(byte demod_status, ushort ts_bitrate_raw, uint mclk_hz)
+        {
+            if (demod_status != stv0910.DEMOD_S2 && demod_status != stv0910.DEMOD_S)
+                return double.NaN;
+
+            return ts_bitrate_raw * (double)mclk_hz / 16384.0 / 1000.0;
+        }
+
         // C/N in dB the received MODCOD needs, NaN if there is no real MODCOD.
         private static double CnNeededDb(byte demod_status, uint modcode)
         {
@@ -763,6 +802,8 @@ namespace opentuner.MediaSources.Minitiouner
                               new_status.T1P2_pdelstatus1, new_status.T1P2_spectrum_inverted, new_status.bcherr,
                               new_status.errors_ldpc_count, new_status.refresh_ms, new_status.T1P2_noise, new_status.T1P2_ts_bitrate_raw,
                               new_status.T1P2_agc1_gain, new_status.T1P2_agc2_gain);
+            _tsinfo_1?.SetSignal(ExpectedBitrateKbps(new_status.T1P2_demod_status, new_status.T1P2_modcode, current_sr_0, new_status.T1P2_short_frame, new_status.T1P2_pilots),
+                                 ChipBitrateKbps(new_status.T1P2_demod_status, new_status.T1P2_ts_bitrate_raw, new_status.mclk_hz));
             _frequency_1?.SetRequestedRate(current_sr_0);
             _frequency_1?.Update(new_status.T1P2_demod_status, new_status.T1P2_frequency_carrier_offset,
                                  new_status.T1P2_carrier_low_hz, new_status.T1P2_carrier_up_hz, new_status.T1P2_symbol_rate,
@@ -776,6 +817,8 @@ namespace opentuner.MediaSources.Minitiouner
                               new_status.T2P1_pdelstatus1, new_status.T2P1_spectrum_inverted, new_status.bcherr,
                               new_status.errors_ldpc_count, new_status.refresh_ms, new_status.T2P1_noise, new_status.T2P1_ts_bitrate_raw,
                               new_status.T2P1_agc1_gain, new_status.T2P1_agc2_gain);
+            _tsinfo_2?.SetSignal(ExpectedBitrateKbps(new_status.T2P1_demod_status, new_status.T2P1_modcode, current_sr_1, new_status.T2P1_short_frame, new_status.T2P1_pilots),
+                                 ChipBitrateKbps(new_status.T2P1_demod_status, new_status.T2P1_ts_bitrate_raw, new_status.mclk_hz));
             _frequency_2?.SetRequestedRate(current_sr_1);
             _frequency_2?.Update(new_status.T2P1_demod_status, new_status.T2P1_frequency_carrier_offset,
                                  new_status.T2P1_carrier_low_hz, new_status.T2P1_carrier_up_hz, new_status.T2P1_symbol_rate,
@@ -1288,9 +1331,21 @@ namespace opentuner.MediaSources.Minitiouner
             }
         }
 
+        // Same as the mute button of the tuner's Properties group (right click menu of the video).
         public override void ToggleMute(int device)
         {
-            throw new NotImplementedException();
+            if (device < 0 || device >= ts_devices || device >= _media_player.Count || _media_player[device] == null)
+                return;
+
+            DynamicPropertyGroup_OnMediaButtonPressed("media_controls_" + (device + 1), 0);
+        }
+
+        public override bool? IsMuted(int device)
+        {
+            if (device < 0 || device >= ts_devices || device >= _media_player.Count || _media_player[device] == null)
+                return null;
+
+            return muted[device];
         }
 
         public override int GetVolume(int device)
