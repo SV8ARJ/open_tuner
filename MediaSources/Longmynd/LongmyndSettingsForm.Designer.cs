@@ -37,15 +37,15 @@
             this.txtBaseCmdTopic = new System.Windows.Forms.TextBox();
             this.txtMqttPort = new System.Windows.Forms.TextBox();
             this.txtWSPort = new System.Windows.Forms.TextBox();
-            this.label8 = new System.Windows.Forms.Label();
-            this.label5 = new System.Windows.Forms.Label();
+            this.labelBaseCmdTopic = new System.Windows.Forms.Label();
+            this.labelMqttPort = new System.Windows.Forms.Label();
             this.txtMqttIpAddress = new System.Windows.Forms.MaskedTextBox();
-            this.label6 = new System.Windows.Forms.Label();
-            this.label4 = new System.Windows.Forms.Label();
+            this.labelMqttIpAddress = new System.Windows.Forms.Label();
+            this.labelWSPort = new System.Windows.Forms.Label();
             this.txtWSIpAddress = new System.Windows.Forms.MaskedTextBox();
-            this.label2 = new System.Windows.Forms.Label();
+            this.labelWSIpAddress = new System.Windows.Forms.Label();
             this.comboHardwareInterface = new System.Windows.Forms.ComboBox();
-            this.label1 = new System.Windows.Forms.Label();
+            this.labelControlInterface = new System.Windows.Forms.Label();
             this.btnCancel = new System.Windows.Forms.Button();
             this.btnSave = new System.Windows.Forms.Button();
             this.groupBox1.SuspendLayout();
@@ -90,15 +90,15 @@
             this.groupHardwareInterface.Controls.Add(this.txtBaseCmdTopic);
             this.groupHardwareInterface.Controls.Add(this.txtMqttPort);
             this.groupHardwareInterface.Controls.Add(this.txtWSPort);
-            this.groupHardwareInterface.Controls.Add(this.label8);
-            this.groupHardwareInterface.Controls.Add(this.label5);
+            this.groupHardwareInterface.Controls.Add(this.labelBaseCmdTopic);
+            this.groupHardwareInterface.Controls.Add(this.labelMqttPort);
             this.groupHardwareInterface.Controls.Add(this.txtMqttIpAddress);
-            this.groupHardwareInterface.Controls.Add(this.label6);
-            this.groupHardwareInterface.Controls.Add(this.label4);
+            this.groupHardwareInterface.Controls.Add(this.labelMqttIpAddress);
+            this.groupHardwareInterface.Controls.Add(this.labelWSPort);
             this.groupHardwareInterface.Controls.Add(this.txtWSIpAddress);
-            this.groupHardwareInterface.Controls.Add(this.label2);
+            this.groupHardwareInterface.Controls.Add(this.labelWSIpAddress);
             this.groupHardwareInterface.Controls.Add(this.comboHardwareInterface);
-            this.groupHardwareInterface.Controls.Add(this.label1);
+            this.groupHardwareInterface.Controls.Add(this.labelControlInterface);
             this.groupHardwareInterface.Location = new System.Drawing.Point(16, 15);
             this.groupHardwareInterface.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.groupHardwareInterface.Name = "groupHardwareInterface";
@@ -150,25 +150,25 @@
             this.txtWSPort.Size = new System.Drawing.Size(212, 22);
             this.txtWSPort.TabIndex = 11;
             // 
-            // label8
+            // labelBaseCmdTopic
             // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(23, 289);
-            this.label8.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(155, 16);
-            this.label8.TabIndex = 10;
-            this.label8.Text = "MQTT Base CMD Topic:";
+            this.labelBaseCmdTopic.AutoSize = true;
+            this.labelBaseCmdTopic.Location = new System.Drawing.Point(23, 289);
+            this.labelBaseCmdTopic.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelBaseCmdTopic.Name = "labelBaseCmdTopic";
+            this.labelBaseCmdTopic.Size = new System.Drawing.Size(155, 16);
+            this.labelBaseCmdTopic.TabIndex = 10;
+            this.labelBaseCmdTopic.Text = "MQTT Base CMD Topic:";
             // 
-            // label5
+            // labelMqttPort
             // 
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(23, 234);
-            this.label5.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(84, 16);
-            this.label5.TabIndex = 8;
-            this.label5.Text = "Port (MQTT):";
+            this.labelMqttPort.AutoSize = true;
+            this.labelMqttPort.Location = new System.Drawing.Point(23, 234);
+            this.labelMqttPort.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelMqttPort.Name = "labelMqttPort";
+            this.labelMqttPort.Size = new System.Drawing.Size(84, 16);
+            this.labelMqttPort.TabIndex = 8;
+            this.labelMqttPort.Text = "Port (MQTT):";
             // 
             // txtMqttIpAddress
             // 
@@ -178,25 +178,25 @@
             this.txtMqttIpAddress.Size = new System.Drawing.Size(212, 22);
             this.txtMqttIpAddress.TabIndex = 7;
             // 
-            // label6
+            // labelMqttIpAddress
             // 
-            this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(23, 202);
-            this.label6.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label6.Name = "label6";
-            this.label6.Size = new System.Drawing.Size(129, 16);
-            this.label6.TabIndex = 6;
-            this.label6.Text = "IP Address (MQTT): ";
+            this.labelMqttIpAddress.AutoSize = true;
+            this.labelMqttIpAddress.Location = new System.Drawing.Point(23, 202);
+            this.labelMqttIpAddress.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelMqttIpAddress.Name = "labelMqttIpAddress";
+            this.labelMqttIpAddress.Size = new System.Drawing.Size(129, 16);
+            this.labelMqttIpAddress.TabIndex = 6;
+            this.labelMqttIpAddress.Text = "IP Address (MQTT): ";
             // 
-            // label4
+            // labelWSPort
             // 
-            this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(23, 155);
-            this.label4.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(67, 16);
-            this.label4.TabIndex = 4;
-            this.label4.Text = "Port (WS):";
+            this.labelWSPort.AutoSize = true;
+            this.labelWSPort.Location = new System.Drawing.Point(23, 155);
+            this.labelWSPort.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelWSPort.Name = "labelWSPort";
+            this.labelWSPort.Size = new System.Drawing.Size(67, 16);
+            this.labelWSPort.TabIndex = 4;
+            this.labelWSPort.Text = "Port (WS):";
             // 
             // txtWSIpAddress
             // 
@@ -206,15 +206,15 @@
             this.txtWSIpAddress.Size = new System.Drawing.Size(212, 22);
             this.txtWSIpAddress.TabIndex = 3;
             // 
-            // label2
+            // labelWSIpAddress
             // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(23, 123);
-            this.label2.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(112, 16);
-            this.label2.TabIndex = 2;
-            this.label2.Text = "IP Address (WS): ";
+            this.labelWSIpAddress.AutoSize = true;
+            this.labelWSIpAddress.Location = new System.Drawing.Point(23, 123);
+            this.labelWSIpAddress.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelWSIpAddress.Name = "labelWSIpAddress";
+            this.labelWSIpAddress.Size = new System.Drawing.Size(112, 16);
+            this.labelWSIpAddress.TabIndex = 2;
+            this.labelWSIpAddress.Text = "IP Address (WS): ";
             // 
             // comboHardwareInterface
             // 
@@ -229,15 +229,15 @@
             this.comboHardwareInterface.Size = new System.Drawing.Size(212, 24);
             this.comboHardwareInterface.TabIndex = 1;
             // 
-            // label1
+            // labelControlInterface
             // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(21, 33);
-            this.label1.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(109, 16);
-            this.label1.TabIndex = 0;
-            this.label1.Text = "Default Interface: ";
+            this.labelControlInterface.AutoSize = true;
+            this.labelControlInterface.Location = new System.Drawing.Point(21, 33);
+            this.labelControlInterface.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.labelControlInterface.Name = "labelControlInterface";
+            this.labelControlInterface.Size = new System.Drawing.Size(109, 16);
+            this.labelControlInterface.TabIndex = 0;
+            this.labelControlInterface.Text = "Control Interface: ";
             // 
             // btnCancel
             // 
@@ -295,14 +295,14 @@
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.GroupBox groupHardwareInterface;
         private System.Windows.Forms.MaskedTextBox txtWSIpAddress;
-        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.Label labelWSIpAddress;
         private System.Windows.Forms.ComboBox comboHardwareInterface;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Label label8;
-        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.Label labelControlInterface;
+        private System.Windows.Forms.Label labelBaseCmdTopic;
+        private System.Windows.Forms.Label labelMqttPort;
         private System.Windows.Forms.MaskedTextBox txtMqttIpAddress;
-        private System.Windows.Forms.Label label6;
-        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.Label labelMqttIpAddress;
+        private System.Windows.Forms.Label labelWSPort;
         private System.Windows.Forms.Button btnCancel;
         private System.Windows.Forms.Button btnSave;
         private System.Windows.Forms.TextBox txtBaseCmdTopic;

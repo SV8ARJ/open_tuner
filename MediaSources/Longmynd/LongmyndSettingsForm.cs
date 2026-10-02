@@ -27,6 +27,32 @@ namespace opentuner.MediaSources.Longmynd
             txtBaseCmdTopic.Text = _settings.CmdTopic;
             txtTuner1FreqOffset.Text = _settings.Offset1.ToString();
             txtTSPort.Text = _settings.TS_Port.ToString();
+
+            UpdateControlInterfaceFields();
+            comboHardwareInterface.SelectedIndexChanged += comboHardwareInterface_SelectedIndexChanged;
+        }
+
+        private void comboHardwareInterface_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            UpdateControlInterfaceFields();
+        }
+
+        // only the fields of the selected control interface (0 = websocket, 1 = mqtt) are used, grey out the others
+        private void UpdateControlInterfaceFields()
+        {
+            bool websocket = comboHardwareInterface.SelectedIndex == 0;
+
+            labelWSIpAddress.Enabled = websocket;
+            txtWSIpAddress.Enabled = websocket;
+            labelWSPort.Enabled = websocket;
+            txtWSPort.Enabled = websocket;
+
+            labelMqttIpAddress.Enabled = !websocket;
+            txtMqttIpAddress.Enabled = !websocket;
+            labelMqttPort.Enabled = !websocket;
+            txtMqttPort.Enabled = !websocket;
+            labelBaseCmdTopic.Enabled = !websocket;
+            txtBaseCmdTopic.Enabled = !websocket;
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
