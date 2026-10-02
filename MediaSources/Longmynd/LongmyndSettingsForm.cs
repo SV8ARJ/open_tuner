@@ -27,6 +27,8 @@ namespace opentuner.MediaSources.Longmynd
             txtBaseCmdTopic.Text = _settings.CmdTopic;
             txtTuner1FreqOffset.Text = _settings.Offset1.ToString();
             txtTSPort.Text = _settings.TS_Port.ToString();
+            txtTsAddress.Text = _settings.TS_Address;
+            checkTestMode.Checked = _settings.TestMode;
 
             UpdateControlInterfaceFields();
             comboHardwareInterface.SelectedIndexChanged += comboHardwareInterface_SelectedIndexChanged;
@@ -37,22 +39,36 @@ namespace opentuner.MediaSources.Longmynd
             UpdateControlInterfaceFields();
         }
 
-        // only the fields of the selected control interface (0 = websocket, 1 = mqtt) are used, grey out the others
+        private void checkTestMode_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdateControlInterfaceFields();
+        }
+
+        // only the fields of the selected control interface (0 = websocket, 1 = mqtt) are used, grey out the others;
+        // in test mode there is no Longmynd control at all (and no frequency offset)
         private void UpdateControlInterfaceFields()
         {
-            bool websocket = comboHardwareInterface.SelectedIndex == 0;
+            bool testMode = checkTestMode.Checked;
+            bool websocket = !testMode && comboHardwareInterface.SelectedIndex == 0;
+            bool mqtt = !testMode && comboHardwareInterface.SelectedIndex == 1;
+
+            labelControlInterface.Enabled = !testMode;
+            comboHardwareInterface.Enabled = !testMode;
 
             labelWSIpAddress.Enabled = websocket;
             txtWSIpAddress.Enabled = websocket;
             labelWSPort.Enabled = websocket;
             txtWSPort.Enabled = websocket;
 
-            labelMqttIpAddress.Enabled = !websocket;
-            txtMqttIpAddress.Enabled = !websocket;
-            labelMqttPort.Enabled = !websocket;
-            txtMqttPort.Enabled = !websocket;
-            labelBaseCmdTopic.Enabled = !websocket;
-            txtBaseCmdTopic.Enabled = !websocket;
+            labelMqttIpAddress.Enabled = mqtt;
+            txtMqttIpAddress.Enabled = mqtt;
+            labelMqttPort.Enabled = mqtt;
+            txtMqttPort.Enabled = mqtt;
+            labelBaseCmdTopic.Enabled = mqtt;
+            txtBaseCmdTopic.Enabled = mqtt;
+
+            labelTuner1FreqOffset.Enabled = !testMode;
+            txtTuner1FreqOffset.Enabled = !testMode;
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
@@ -92,8 +108,20 @@ namespace opentuner.MediaSources.Longmynd
                 return;
             }
 
+            string tsaddress = txtTsAddress.Text.Trim();
+            // IPAddress.TryParse also accepts short forms like "10" or "1.2.3", so ask for four parts explicitly
+            if (tsaddress.Length > 0 && !(tsaddress.Split('.').Length == 4
+                && System.Net.IPAddress.TryParse(tsaddress, out System.Net.IPAddress tsip)
+                && tsip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork))
+            {
+                MessageBox.Show("Invalid TS Address (empty = Auto, or an IPv4 address like 192.168.0.10 or 230.0.0.10)");
+                return;
+            }
+
             _settings.DefaultInterface = (byte)comboHardwareInterface.SelectedIndex;
             _settings.TS_Port = tsport;
+            _settings.TS_Address = tsaddress;
+            _settings.TestMode = checkTestMode.Checked;
             _settings.LongmyndWSHost = txtWSIpAddress.Text;
             _settings.LongmyndWSPort = wsport;
             _settings.LongmyndMqttHost = txtMqttIpAddress.Text;

@@ -32,6 +32,19 @@ namespace opentuner.MediaPlayers.MPV
 
         bool stopFlag = false;
 
+        // Every Play() starts one instance of mpv. The read callback of an instance only serves while its generation
+        // (the cookie) is the current one, so an old instance that is still ending cannot take data from the new one.
+        private long _generation = 0;
+        private readonly object _lifecycleLock = new object();
+        private EventLoopToken _eventLoop;
+        private Task _terminationTask = Task.CompletedTask;
+
+        private class EventLoopToken
+        {
+            public volatile bool Cancel;
+            public Task Task;
+        }
+
         public override event EventHandler<MediaStatus> onVideoOut;
         private IntPtr _mpvHandle;
 
@@ -50,12 +63,13 @@ namespace opentuner.MediaPlayers.MPV
             //Log.Information("MPVMediaPlayer: " + msg);
         }
 
-        public void startEventLoop()
+        private EventLoopToken StartEventLoop(IntPtr handle)
         {
-            Task.Run(() => {
+            var token = new EventLoopToken();
+            token.Task = Task.Run(() => {
                 try
                 {
-                    EventLoop();
+                    EventLoop(handle, token);
                 }
                 catch (Exception ex)
                 {
@@ -63,17 +77,19 @@ namespace opentuner.MediaPlayers.MPV
                 }
             });
 
+            return token;
         }
 
-        public int GetPropertyInt(string propertyName)
+        // handle: the instance asked, default = the current one
+        public int GetPropertyInt(string propertyName, IntPtr handle = default)
         {
-            mpv_get_property(_mpvHandle, GetUtf8Bytes(propertyName), mpv_format.MPV_FORMAT_INT64, out IntPtr buffer);
+            mpv_get_property(handle != default ? handle : _mpvHandle, GetUtf8Bytes(propertyName), mpv_format.MPV_FORMAT_INT64, out IntPtr buffer);
             return buffer.ToInt32();
         }
 
-        public string GetPropertyString(string propertyName)
+        public string GetPropertyString(string propertyName, IntPtr handle = default)
         {
-            mpv_error error = mpv_get_property(_mpvHandle, GetUtf8Bytes(propertyName), mpv_format.MPV_FORMAT_STRING, out IntPtr buffer);
+            mpv_error error = mpv_get_property(handle != default ? handle : _mpvHandle, GetUtf8Bytes(propertyName), mpv_format.MPV_FORMAT_STRING, out IntPtr buffer);
 
             if (error == mpv_error.MPV_ERROR_SUCCESS)
             {
@@ -86,16 +102,20 @@ namespace opentuner.MediaPlayers.MPV
         }
 
 
-        public void EventLoop()
+        // Runs for one instance (handle) until it is cancelled: it must not touch the handle after that, because the
+        // core is destroyed right then (hence the short timeout instead of waiting for ever).
+        private void EventLoop(IntPtr handle, EventLoopToken token)
         {
-            while (true)
+            while (!token.Cancel)
             {
-
-                if (_mpvHandle == IntPtr.Zero)
+                IntPtr ptr = LibMpv.mpv_wait_event(handle, 0.2);
+                if (token.Cancel)
                     break;
 
-                IntPtr ptr = LibMpv.mpv_wait_event(_mpvHandle, -1);
                 mpv_event evt = (mpv_event)Marshal.PtrToStructure(ptr, typeof(mpv_event));
+
+                if (evt.event_id == mpv_event_id.MPV_EVENT_SHUTDOWN)
+                    break;
 
                 try
                 {
@@ -113,8 +133,8 @@ namespace opentuner.MediaPlayers.MPV
                         case (mpv_event_id.MPV_EVENT_PLAYBACK_RESTART):
                             MediaStatus info = new MediaStatus();
 
-                            int width = GetPropertyInt("dwidth");
-                            int height = GetPropertyInt("dheight");
+                            int width = GetPropertyInt("dwidth", handle);
+                            int height = GetPropertyInt("dheight", handle);
 
                             info.VideoHeight = (uint)height;
                             info.VideoWidth = (uint)width;
@@ -124,15 +144,15 @@ namespace opentuner.MediaPlayers.MPV
 
                             //data = GetPropertyString("video-format");
                             
-                            data = GetPropertyString("video-codec");
+                            data = GetPropertyString("video-codec", handle);
                             info.VideoCodec = data;
-                            data = GetPropertyString("audio-codec-name");
+                            data = GetPropertyString("audio-codec-name", handle);
                             info.AudioCodec = data;
-                            data = GetPropertyString("audio-device");
+                            data = GetPropertyString("audio-device", handle);
                             debug(data);
-                            data = GetPropertyString("audio-params/channel-count");
+                            data = GetPropertyString("audio-params/channel-count", handle);
                             uint.TryParse(data, out info.AudioChannels);
-                            data = GetPropertyString("audio-params/samplerate");
+                            data = GetPropertyString("audio-params/samplerate", handle);
                             uint.TryParse(data, out info.AudioRate);
 
                             onVideoOut?.Invoke(this,info);
@@ -161,7 +181,7 @@ namespace opentuner.MediaPlayers.MPV
 
         Int64 MyStreamReadFn(IntPtr cookie, IntPtr buf, Int64 numbytes)
         {
-            if (stopFlag == true)
+            if (stopFlag == true || (long)cookie != Interlocked.Read(ref _generation))
                 return 0;
 
             try
@@ -171,7 +191,7 @@ namespace opentuner.MediaPlayers.MPV
                 while (_videoBuffer.Count < 2000)
                 {
 
-                    if (stopFlag == true)
+                    if (stopFlag == true || (long)cookie != Interlocked.Read(ref _generation))
                     {
                         //Log.Information("Stop Requested");
                         return 0;
@@ -261,6 +281,7 @@ namespace opentuner.MediaPlayers.MPV
 
             info.ReadFn = Marshal.GetFunctionPointerForDelegate(readfn);
             info.CloseFn = Marshal.GetFunctionPointerForDelegate(closefn);
+            info.Cookie = (IntPtr)Interlocked.Read(ref _generation);
 
             return 0;
         }
@@ -295,10 +316,10 @@ namespace opentuner.MediaPlayers.MPV
 
         public override void Close()
         {
-            if (_mpvHandle != IntPtr.Zero)
+            lock (_lifecycleLock)
             {
-                LibMpv.mpv_destroy(_mpvHandle);
-                _mpvHandle = IntPtr.Zero;
+                StopLocked();
+                _terminationTask.Wait(500);
             }
         }
 
@@ -314,19 +335,27 @@ namespace opentuner.MediaPlayers.MPV
 
         public override void Play()
         {
+            lock (_lifecycleLock)
+            {
+                PlayLocked();
+            }
+        }
+
+        private void PlayLocked()
+        {
+            // a running instance is stopped first and has to be gone before the next one starts
+            StopLocked();
+            if (!_terminationTask.Wait(2000))
+                Log.Warning("MPV: the previous instance did not end within 2 s");
+
             ts_sync = false;
             stopFlag = false;
-
-            if (_mpvHandle != IntPtr.Zero)
-            {
-                debug("Destroy");
-                LibMpv.mpv_destroy(_mpvHandle);
-            }
+            Interlocked.Increment(ref _generation);
 
             _mpvHandle = LibMpv.mpv_create();
 
             debug("start event loop");
-            startEventLoop();
+            _eventLoop = StartEventLoop(_mpvHandle);
 
 
             mpv_initialize(_mpvHandle);
@@ -376,12 +405,45 @@ namespace opentuner.MediaPlayers.MPV
 
         public override void Stop()
         {
-            stopFlag = true;
-            if (_mpvHandle != IntPtr.Zero)
+            lock (_lifecycleLock)
             {
-                LibMpv.mpv_destroy(_mpvHandle);
-                _mpvHandle = IntPtr.Zero;
+                StopLocked();
             }
+        }
+
+        // Ends the running instance without waiting for it. The event loop is cancelled first (it must not touch the
+        // handle any more), then the core is ended on a background thread. mpv_destroy alone returns at once and
+        // leaves the old core running with its video window and its read callback: the old instance then keeps its
+        // last picture and takes data from the new one. mpv_terminate_destroy waits for the end of the core, which on
+        // the UI thread could block against the window of the core, so it never runs there.
+        private void StopLocked()
+        {
+            stopFlag = true;
+            Interlocked.Increment(ref _generation);   // the read callback of the old instance returns 0 from now on
+
+            IntPtr handle = _mpvHandle;
+            EventLoopToken token = _eventLoop;
+            _mpvHandle = IntPtr.Zero;
+            _eventLoop = null;
+
+            if (handle == IntPtr.Zero)
+                return;
+
+            if (token != null)
+                token.Cancel = true;
+
+            _terminationTask = Task.Run(() =>
+            {
+                try
+                {
+                    token?.Task?.Wait(1000);
+                    LibMpv.mpv_terminate_destroy(handle);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("MPV: ending the instance failed: " + ex.Message);
+                }
+            });
         }
 
         public override int getID()

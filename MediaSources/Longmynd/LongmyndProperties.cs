@@ -271,13 +271,17 @@ namespace opentuner.MediaSources.Longmynd
                     break;
                 case "source_ts_ip":
                     // get local ip's
-                    if (_LocalIp.Length == 0)
+                    if (_settings.TestMode)
+                    {
+                        // no Longmynd to tell
+                    }
+                    else if (_TsAddress.Length == 0)
                     {
                         Log.Information("Warning: No Ip's detected");
                     }
                     else
                     {
-                        contextMenuStrip.Items.Add(ConfigureMenuItem("Update TS to " + _LocalIp, LongmyndPropertyCommands.SETTSLOCAL, 0));
+                        contextMenuStrip.Items.Add(ConfigureMenuItem("Update TS to " + _TsAddress, LongmyndPropertyCommands.SETTSLOCAL, 0));
                     }
                     break;
             }
@@ -329,23 +333,23 @@ namespace opentuner.MediaSources.Longmynd
 
                 case LongmyndPropertyCommands.SETTSLOCAL:
 
-                    if (_LocalIp.Length > 0)
+                    if (_TsAddress.Length > 0)
                     {
-                        Log.Information("Updating TS Ip to " + _LocalIp);
+                        Log.Information("Updating TS Ip to " + _TsAddress);
 
                         if (_settings.DefaultInterface == 0)
                         {
                             // websocket
-                            //string wh_command = ("U" + (option + 1).ToString() + "," + _LocalIp.ToString());
+                            //string wh_command = ("U" + (option + 1).ToString() + "," + _TsAddress.ToString());
                             //Log.Information(wh_command);
                             //controlWS.Send(wh_command);
 
-                            WSSetTS(_LocalIp, _settings.TS_Port);
+                            WSSetTS(_TsAddress, _settings.TS_Port);
                         }
                         else
                         {
                             // mqtt
-                            MqttSetTS(_LocalIp, _settings.TS_Port);
+                            MqttSetTS(_TsAddress, _settings.TS_Port);
                         }
 
 

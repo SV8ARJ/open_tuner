@@ -154,7 +154,7 @@ namespace opentuner.MediaSources.Longmynd
                 case "dt/longmynd/set/tsip":
                     _source_properties.UpdateValue("source_ts_ip", Message);
 
-                    if (_LocalIp != Message)
+                    if (_TsAddress != Message)
                     {
                         _source_properties.UpdateColor("source_ts_ip", Color.PaleVioletRed);
                     }

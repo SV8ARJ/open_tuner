@@ -44,6 +44,9 @@ namespace opentuner.MediaPlayers.FFMPEG
             
             config.Player.MinBufferDuration = TimeSpan.FromSeconds(1.5).Ticks;
             config.Decoder.MaxAudioFrames = 40;
+            // a weak or disturbed DATV signal loses TS packets: show the damaged pictures (with errors, like VLC and MPV
+            // do) instead of dropping them, otherwise a stream such as the QO-100 beacon with lost packets stays black
+            config.Decoder.ShowCorrupted = true;
             //config.Decoder.VideoThreads = 2;
             config.Demuxer.BufferDuration = TimeSpan.FromSeconds(10).Ticks;
             //config.Player.ThreadPriority = ThreadPriority.Highest;
@@ -91,6 +94,15 @@ namespace opentuner.MediaPlayers.FFMPEG
 
         private void Player_OpenCompleted(object sender, OpenCompletedArgs e)
         {
+            // A stopped open also ends with this event (a new Play follows quickly when the lock of a source flutters):
+            // that is no video, the player must not report one
+            if (!e.Success || media_stream == null || media_stream.end
+                || (e.IOStream != null && !ReferenceEquals(e.IOStream, media_stream)))
+            {
+                Log.Information("FFMPEG : Open Completed of a stopped or old stream, ignored");
+                return;
+            }
+
             Log.Information("FFMPEG : Open Completed");
 
             player.Audio.Volume = player_volume;
@@ -140,23 +152,51 @@ namespace opentuner.MediaPlayers.FFMPEG
             }
         }
 
+        // Play and Stop come from different threads (lock lost / locked again of a source, the user) and used to
+        // overlap, a Stop takes 300 ms: one at a time. Every Play gets its own MediaStream and the old one stays "end"
+        // for good, so a reader of the old stream that is still in Read cannot take data from the new one.
+        private readonly object _lifecycleLock = new object();
+        private bool _stopped = true;      // nothing to stop (Stop takes 300 ms, also when nothing is running)
+
         public override void Play()
         {
-            Log.Information("FFMPEG: Playing");
+            lock (_lifecycleLock)
+            {
+                Log.Information("FFMPEG: Playing");
 
-            ts_data_queue.Clear();
+                StopLocked();
 
-            media_stream.ts_sync = false;
-            media_stream.end = false;
-            Log.Information("FFMPEG Play");
-            player.OpenAsync(media_stream);
-            player.Play();
+                ts_data_queue.Clear();
+
+                media_stream = new MediaStream(ts_data_queue);
+                Log.Information("FFMPEG Play");
+                _stopped = false;
+                player.OpenAsync(media_stream);
+                player.Play();
+            }
         }
+
         public override void Stop()
         {
-            Log.Information("FFMPEG Stop");
-            media_stream.end = true;
-            if (player.IsPlaying) { player.Stop(); }
+            lock (_lifecycleLock)
+            {
+                Log.Information("FFMPEG Stop");
+                StopLocked();
+            }
+        }
+
+        private void StopLocked()
+        {
+            if (_stopped)
+                return;
+
+            _stopped = true;
+
+            if (media_stream != null)
+                media_stream.end = true;
+
+            // also while the media is still being opened (IsPlaying is false then)
+            player.Stop();
         }
 
         public override void SnapShot(string FileName)

@@ -219,7 +219,7 @@ namespace opentuner.MediaSources.Longmynd
 
             _source_properties.UpdateValue("source_ts_ip", monitor_message.packet.rx.ts_ip_addr + ":" + monitor_message.packet.rx.ts_ip_port.ToString());
 
-            if (_LocalIp + ":" + _settings.TS_Port != monitor_message.packet.rx.ts_ip_addr + ":" + monitor_message.packet.rx.ts_ip_port.ToString())
+            if (_TsAddress + ":" + _settings.TS_Port != monitor_message.packet.rx.ts_ip_addr + ":" + monitor_message.packet.rx.ts_ip_port.ToString())
             {
                 _source_properties.UpdateColor("source_ts_ip", Color.PaleVioletRed);
             }

@@ -415,7 +415,7 @@ namespace opentuner
         {
             switch (stream_type)
             {
-                case 0x01: case 0x02: case 0x10: case 0x1B: case 0x24:   // MPEG-1/2, MPEG-4 visual, H.264, H.265
+                case 0x01: case 0x02: case 0x10: case 0x1B: case 0x24: case 0x33:   // MPEG-1/2, MPEG-4 visual, H.264, H.265, H.266 (VVC)
                     return Video;
                 case 0x03: case 0x04: case 0x0F: case 0x11: case 0x81: case 0x87:   // MPEG audio, AAC, LATM, AC-3, E-AC-3
                     return Audio;

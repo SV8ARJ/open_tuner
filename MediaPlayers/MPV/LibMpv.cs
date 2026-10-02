@@ -24,6 +24,10 @@ namespace opentuner.MediaPlayers.MPV
         [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void mpv_destroy(IntPtr mpvHandle);
 
+        // like mpv_destroy, but waits until the player core has ended
+        [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void mpv_terminate_destroy(IntPtr mpvHandle);
+
         [DllImport("libmpv-2.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern mpv_error mpv_command(IntPtr mpvHandle, IntPtr strings);
 

@@ -50,6 +50,16 @@ namespace opentuner.Utilities
             return string.IsNullOrEmpty(safe_station) ? "" : safe_station + "-" + symbol_rate_ks + "KS";
         }
 
+        // IPv4 multicast range 224.0.0.0 - 239.255.255.255
+        public static bool IsMulticast(IPAddress address)
+        {
+            if (address.AddressFamily != AddressFamily.InterNetwork)
+                return false;
+
+            byte first = address.GetAddressBytes()[0];
+            return first >= 224 && first <= 239;
+        }
+
         public static List<string> determineIP()
         {
             List<string> detected_ips = new List<string>();

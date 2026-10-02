@@ -2,10 +2,12 @@
 using opentuner.MediaPlayers;
 using opentuner.MediaSources.Minitiouner;
 using opentuner.Utilities;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -55,7 +57,32 @@ namespace opentuner.MediaSources.Longmynd
 
         string _mediaPath = "";
 
-        private string _LocalIp;
+        // the address the TS is expected on: TS_Address of the settings, or the first detected IPv4 address of this PC
+        private string _TsAddress = "";
+
+        // test mode: there is no Longmynd status, so the video is started with the first TS data and stopped when the
+        // TS stops for a while, the same Stop / Start as Longmynd's lock lost / locked again
+        // (not started before the source is fully configured: the TS may already be flowing while Initialize still runs)
+        private readonly object _testModeLock = new object();
+        private bool _testModeVideoRunning = false;
+        private long _testModeStartTick = long.MaxValue;
+        private long _testModeLastDataTick = 0;
+        private bool _testModeFirstData = true;
+        private long _testModeDatagrams = 0;
+        private long _testModeBytes = 0;
+        private int _testModeTicks = 0;
+        private System.Threading.Timer _testModeTimer;
+
+        // test mode: the service name (SDT) and the stream types (PMT) of the TS, only for the log
+        private TSParserThread _testModeParser;
+        private volatile string _testModeServiceName = "";
+        private volatile string _testModeServiceProvider = "";
+        private string _testModeServiceLogged = "";
+        private int _testModeServiceTicks = 0;
+        private const int TestModeStartDelayMs = 3000;
+        private const int TestModeGapMs = 1000;         // no TS for this long = lock lost
+        private const int TestModeTickMs = 250;
+        private const int TestModeStatsTicks = 20;      // statistics in the log every 5 s
 
         public LongmyndSource()
         {
@@ -74,6 +101,8 @@ namespace opentuner.MediaSources.Longmynd
                 CloseWebsockets();
             }
 
+            _testModeTimer?.Dispose();
+            _testModeParser?.Stop();
             udp_client?.Close();
         }
 
@@ -119,6 +148,9 @@ namespace opentuner.MediaSources.Longmynd
 
         public override string GetDeviceName()
         {
+            if (_settings.TestMode)
+                return "Longmynd Client - Test mode";
+
             return "Longmynd Client - " + (_settings.DefaultInterface == 0 ? "Websocket" : "Mqtt");
         }
 
@@ -160,13 +192,169 @@ namespace opentuner.MediaSources.Longmynd
 
         private void Udp_client_DataReceived(object sender, byte[] e)
         {
-            if (!playing) { return; }
+            // test mode: no Longmynd status, the TS data itself starts and (see the timer) stops the video
+            if (_settings.TestMode)
+            {
+                if (!TestModeDataReceived(e.Length)) { return; }
+            }
+            else if (!playing) { return; }
 
             for (int c = 0; c < e.Length; c++)
             {
                 udp_buffer.Enqueue(e[c]);
             }
-            ts_thread.NewDataPresent();
+            ts_thread?.NewDataPresent();
+        }
+
+        // Test mode, called for every datagram. Returns false while the video is not running (data is dropped, as it is
+        // while Longmynd has no lock), true when the data is to be passed on.
+        private bool TestModeDataReceived(int length)
+        {
+            long now = Environment.TickCount64;
+            bool start_video = false;
+            bool first = false;
+            long gap = 0;
+
+            lock (_testModeLock)
+            {
+                if (_testModeLastDataTick != 0)
+                    gap = now - _testModeLastDataTick;
+                _testModeLastDataTick = now;
+
+                _testModeDatagrams++;
+                _testModeBytes += length;
+
+                first = _testModeFirstData;
+                _testModeFirstData = false;
+
+                if (!_testModeVideoRunning && now >= Interlocked.Read(ref _testModeStartTick) && VideoChangeCB != null)
+                {
+                    _testModeVideoRunning = true;
+                    start_video = true;
+                }
+            }
+
+            if (first)
+                Log.Information("Longmynd test mode: first TS data received (" + length + " bytes per datagram)");
+
+            if (gap > TestModeGapMs)
+                Log.Warning("Longmynd test mode: TS data again after " + gap + " ms without data");
+
+            if (start_video)
+            {
+                Log.Information("Longmynd test mode: TS data present, starting video");
+                VideoChangeCB(1, true);
+            }
+
+            lock (_testModeLock)
+                return _testModeVideoRunning;
+        }
+
+        private void TestModeServiceCallback(TSStatus ts_status)
+        {
+            _testModeServiceName = ts_status.ServiceName ?? "";
+            _testModeServiceProvider = ts_status.ServiceProvider ?? "";
+        }
+
+        private static string TestModeStreamTypeName(int stream_type)
+        {
+            switch (stream_type)
+            {
+                case 0x01: return "MPEG-1 video";
+                case 0x02: return "MPEG-2 video";
+                case 0x03: case 0x04: return "MPEG audio (MP2)";
+                case 0x0F: return "AAC (ADTS)";
+                case 0x11: return "AAC (LATM)";
+                case 0x10: return "MPEG-4 video";
+                case 0x1B: return "H.264";
+                case 0x24: return "H.265";
+                case 0x33: return "H.266 (VVC)";
+                case 0x81: return "AC-3";
+                default: return "type 0x" + stream_type.ToString("X2");
+            }
+        }
+
+        // e.g.: service "A71A" / "QARS": H.264 on PID 0x0101, MPEG audio (MP2) on PID 0x0102
+        private string TestModeDescribeService()
+        {
+            var sb = new StringBuilder();
+            sb.Append("service \"" + _testModeServiceName + "\" / \"" + _testModeServiceProvider + "\"");
+
+            TSAnalysis analysis = _testModeParser.Analyzer.Get();
+            if (analysis.Pids != null)
+            {
+                string separator = ": ";
+                foreach (TSPidInfo pid in analysis.Pids)
+                {
+                    // video (1) and audio (2) streams the PMT names
+                    if (pid.StreamType >= 0 && (pid.Category == 1 || pid.Category == 2))
+                    {
+                        sb.Append(separator + TestModeStreamTypeName(pid.StreamType) + " on PID 0x" + pid.Pid.ToString("X4"));
+                        separator = ", ";
+                    }
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        // Test mode, every 250 ms: no TS for TestModeGapMs = lock lost (stop the video, like Longmynd's demod_state < 3),
+        // and the statistics for the log.
+        private void TestModeTimerTick(object state)
+        {
+            long now = Environment.TickCount64;
+            bool stop_video = false;
+            long datagrams = 0, bytes = 0;
+            bool stats = false;
+
+            lock (_testModeLock)
+            {
+                if (_testModeVideoRunning && _testModeLastDataTick != 0 && now - _testModeLastDataTick > TestModeGapMs)
+                {
+                    _testModeVideoRunning = false;
+                    stop_video = true;
+                }
+
+                if (++_testModeTicks >= TestModeStatsTicks)
+                {
+                    _testModeTicks = 0;
+                    stats = true;
+                    datagrams = _testModeDatagrams;
+                    bytes = _testModeBytes;
+                    _testModeDatagrams = 0;
+                    _testModeBytes = 0;
+                }
+            }
+
+            if (stop_video)
+            {
+                Log.Warning("Longmynd test mode: no TS data for more than " + TestModeGapMs + " ms, stopping video (lock lost)");
+                _testModeServiceLogged = "";    // name the service again when the TS is back
+                VideoChangeCB?.Invoke(1, false);
+            }
+
+            // once a second: which service and which codecs are in the TS (SDT and PMT), logged when it changes
+            if (_testModeParser != null && ++_testModeServiceTicks >= 1000 / TestModeTickMs)
+            {
+                _testModeServiceTicks = 0;
+
+                if (_testModeServiceName.Length > 0)
+                {
+                    string service = TestModeDescribeService();
+                    if (service != _testModeServiceLogged)
+                    {
+                        _testModeServiceLogged = service;
+                        Log.Information("Longmynd test mode: " + service);
+                    }
+                }
+            }
+
+            if (stats)
+            {
+                double seconds = TestModeStatsTicks * TestModeTickMs / 1000.0;
+                Log.Information("Longmynd test mode: " + datagrams + " datagrams, " + bytes + " bytes in " + seconds + " s ("
+                    + Math.Round(bytes * 8 / seconds / 1000) + " kbit/s)");
+            }
         }
 
         private void Udp_client_ConnectionStatusChanged(object sender, bool connection_status)
@@ -180,21 +368,47 @@ namespace opentuner.MediaSources.Longmynd
         {
             _parent = Parent;
 
-
-
-            // connect websockets
-            switch (_settings.DefaultInterface)
+            // TS address: the one of the settings, otherwise the first IPv4 address of this PC
+            _TsAddress = (_settings.TS_Address ?? "").Trim();
+            if (_TsAddress.Length == 0)
             {
-                case 0:  
-                    connectWebsockets(); 
-                    break;
-                case 1:
-                    ConnectMqtt();
-                    break;
+                List<string> detected_ips = CommonFunctions.determineIP();
+
+                if (detected_ips.Count > 0)
+                    _TsAddress = detected_ips[0];
             }
 
-            // open udp port
-            udp_client = new UDPClient(_settings.TS_Port);
+            // test mode: no Longmynd control, the TS is only received
+            if (_settings.TestMode)
+            {
+                Log.Information("Longmynd: test mode, TS only on " + _TsAddress + ":" + _settings.TS_Port);
+                playing = true;
+                _testModeTimer = new System.Threading.Timer(TestModeTimerTick, null, TestModeTickMs, TestModeTickMs);
+            }
+            else
+            {
+                // connect websockets
+                switch (_settings.DefaultInterface)
+                {
+                    case 0:
+                        connectWebsockets();
+                        break;
+                    case 1:
+                        ConnectMqtt();
+                        break;
+                }
+            }
+
+            // open udp port, a multicast address is joined
+            if (IPAddress.TryParse(_TsAddress, out IPAddress ts_ip) && CommonFunctions.IsMulticast(ts_ip))
+            {
+                Log.Information("Longmynd: joining multicast group " + _TsAddress);
+                udp_client = new UDPClient(_settings.TS_Port, ts_ip);
+            }
+            else
+            {
+                udp_client = new UDPClient(_settings.TS_Port);
+            }
             udp_client.ConnectionStatusChanged += Udp_client_ConnectionStatusChanged;
             udp_client.DataReceived += Udp_client_DataReceived;
             udp_client.Connect();
@@ -204,25 +418,35 @@ namespace opentuner.MediaSources.Longmynd
             ts_thread_t.IsBackground = true;
             ts_thread_t.Start();
 
-            BuildSourceProperties();
-
-            switch(_settings.DefaultInterface)
+            // test mode: read the service name and the stream types from the TS, they go to the log
+            if (_settings.TestMode)
             {
-                case 0:
-                    _source_properties.UpdateValue("source_ip", _settings.LongmyndWSHost);
-                    break;
-                case 1:
-                    _source_properties.UpdateValue("source_ip", _settings.LongmyndMqttHost);
-                    break;
-
+                _testModeParser = new TSParserThread(TestModeServiceCallback);
+                ts_thread.RegisterTSConsumer(_testModeParser.parser_ts_data_queue);
+                Thread test_mode_parser_t = new Thread(_testModeParser.worker_thread);
+                test_mode_parser_t.IsBackground = true;
+                test_mode_parser_t.Start();
             }
 
+            BuildSourceProperties();
 
-            // get local ip
-            List<string> detected_ips = CommonFunctions.determineIP();
-
-            if (detected_ips.Count > 0)
-                _LocalIp = detected_ips[0];
+            if (_settings.TestMode)
+            {
+                _source_properties.UpdateValue("source_ip", "Test mode (TS only)");
+                _source_properties.UpdateValue("source_ts_ip", _TsAddress + ":" + _settings.TS_Port);
+            }
+            else
+            {
+                switch (_settings.DefaultInterface)
+                {
+                    case 0:
+                        _source_properties.UpdateValue("source_ip", _settings.LongmyndWSHost);
+                        break;
+                    case 1:
+                        _source_properties.UpdateValue("source_ip", _settings.LongmyndMqttHost);
+                        break;
+                }
+            }
 
             this.VideoChangeCB = VideoChangeCB;
 
@@ -264,6 +488,10 @@ namespace opentuner.MediaSources.Longmynd
 
         public override void SetFrequency(int device, uint frequency, uint symbol_rate, bool offset_included)
         {
+            // test mode: there is no Longmynd to tune
+            if (_settings.TestMode)
+                return;
+
             switch (_settings.DefaultInterface)
             {
                 case 0: 
@@ -305,6 +533,11 @@ namespace opentuner.MediaSources.Longmynd
         public override void ConfigureTSStreamers(List<TSUdpStreamer> TSStreamers)
         {
             _streamer = TSStreamers[0];
+
+            // the last of the Configure... calls: the video may be started now (see Udp_client_DataReceived)
+            // and the window is built (the FFMPEG player needs its video window, in normal operation the lock status
+            // of Longmynd comes much later as well)
+            Interlocked.Exchange(ref _testModeStartTick, Environment.TickCount64 + TestModeStartDelayMs);
         }
 
         public override void ConfigureMediaPath(string MediaPath)

@@ -52,6 +52,20 @@ namespace opentuner.Utilities
             listenThread.IsBackground = true;
         }
 
+        // Listens on a multicast group: several receivers can share the port (also on one PC), the group is joined on
+        // the default network interface.
+        public UDPClient(int port, IPAddress multicastGroup)
+        {
+            this.port = port;
+            udpClient = new UdpClient(AddressFamily.InterNetwork);
+            udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, port));
+            udpClient.JoinMulticastGroup(multicastGroup);
+            isListening = false;
+            listenThread = new Thread(ListenForData);
+            listenThread.IsBackground = true;
+        }
+
         public UDPClient(int port, int ID)
         {
             _id = ID;
