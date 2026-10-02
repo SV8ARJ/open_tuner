@@ -280,8 +280,6 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
                 spectrumSettings.avoidBeacon = new bool[4];
             Array.Resize(ref spectrumSettings.tuneMode, 4);
             Array.Resize(ref spectrumSettings.avoidBeacon, 4);
-
-            sigs.OverpowerLimitDb = spectrumSettings.overPowerLimit;
         }
 
         // after the settings window: a tuner that went from Manual to an Auto mode is looked at at once

@@ -49,8 +49,6 @@
             this.textModeHelp = new System.Windows.Forms.TextBox();
             this.groupOverpowerLayout = new System.Windows.Forms.GroupBox();
             this.overPowerIndicatorLayout = new System.Windows.Forms.ComboBox();
-            this.labelOverpowerLimit = new System.Windows.Forms.Label();
-            this.overPowerLimitValue = new System.Windows.Forms.NumericUpDown();
             this.groupTimer = new System.Windows.Forms.GroupBox();
             this.labelTimedTime = new System.Windows.Forms.Label();
             this.labelHoldTime = new System.Windows.Forms.Label();
@@ -60,7 +58,6 @@
             this.labelHoldSeconds = new System.Windows.Forms.Label();
             this.groupTuningMode.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.thresholdValue)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.overPowerLimitValue)).BeginInit();
             this.groupOverpowerLayout.SuspendLayout();
             this.groupTimer.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.autoTuneTimeValue)).BeginInit();
@@ -327,14 +324,12 @@
             // groupOverpowerLayout
             // 
             this.groupOverpowerLayout.Controls.Add(this.overPowerIndicatorLayout);
-            this.groupOverpowerLayout.Controls.Add(this.labelOverpowerLimit);
-            this.groupOverpowerLayout.Controls.Add(this.overPowerLimitValue);
             this.groupOverpowerLayout.Location = new System.Drawing.Point(15, 298);
             this.groupOverpowerLayout.Name = "groupOverpowerLayout";
             this.groupOverpowerLayout.Size = new System.Drawing.Size(304, 60);
             this.groupOverpowerLayout.TabIndex = 5;
             this.groupOverpowerLayout.TabStop = false;
-            this.groupOverpowerLayout.Text = "Overpower Indicator (layout, marked above dBb)";
+            this.groupOverpowerLayout.Text = "Overpower Indicator (layout, marked above -0.7 dBb)";
             // 
             // overPowerIndicatorLayout
             // 
@@ -349,40 +344,7 @@
             this.overPowerIndicatorLayout.Name = "overPowerIndicatorLayout";
             this.overPowerIndicatorLayout.Size = new System.Drawing.Size(162, 21);
             this.overPowerIndicatorLayout.TabIndex = 0;
-            // 
-            // labelOverpowerLimit
-            // 
-            this.labelOverpowerLimit.AutoSize = true;
-            this.labelOverpowerLimit.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F);
-            this.labelOverpowerLimit.Location = new System.Drawing.Point(178, 26);
-            this.labelOverpowerLimit.Name = "labelOverpowerLimit";
-            this.labelOverpowerLimit.Size = new System.Drawing.Size(55, 16);
-            this.labelOverpowerLimit.TabIndex = 2;
-            this.labelOverpowerLimit.Text = "above";
-            // 
-            // overPowerLimitValue
-            // 
-            this.overPowerLimitValue.DecimalPlaces = 1;
-            this.overPowerLimitValue.Increment = new decimal(new int[] {
-            1,
-            0,
-            0,
-            65536});
-            this.overPowerLimitValue.Location = new System.Drawing.Point(226, 25);
-            this.overPowerLimitValue.Maximum = new decimal(new int[] {
-            60,
-            0,
-            0,
-            65536});
-            this.overPowerLimitValue.Minimum = new decimal(new int[] {
-            60,
-            0,
-            0,
-            -2147418112});
-            this.overPowerLimitValue.Name = "overPowerLimitValue";
-            this.overPowerLimitValue.Size = new System.Drawing.Size(66, 20);
-            this.overPowerLimitValue.TabIndex = 1;
-            // 
+            //
             // groupTimer
             // 
             this.groupTimer.Controls.Add(this.labelTimedTime);
@@ -497,7 +459,6 @@
             this.groupTuningMode.ResumeLayout(false);
             this.groupTuningMode.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.thresholdValue)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.overPowerLimitValue)).EndInit();
             this.groupOverpowerLayout.ResumeLayout(false);
             this.groupTimer.ResumeLayout(false);
             this.groupTimer.PerformLayout();
@@ -527,8 +488,6 @@
         private System.Windows.Forms.TextBox textModeHelp;
         private System.Windows.Forms.GroupBox groupOverpowerLayout;
         private System.Windows.Forms.ComboBox overPowerIndicatorLayout;
-        private System.Windows.Forms.Label labelOverpowerLimit;
-        private System.Windows.Forms.NumericUpDown overPowerLimitValue;
         private System.Windows.Forms.GroupBox groupTimer;
         private System.Windows.Forms.Label labelHoldSeconds;
         private System.Windows.Forms.NumericUpDown autoHoldTimeValue;

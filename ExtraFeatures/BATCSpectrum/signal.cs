@@ -354,16 +354,18 @@ namespace opentuner
             return next.frequency > 0 ? next : lowest;
         }
 
-        // A signal is overpowering when it is stronger than this many dB relative to the beacon (setting, was
-        // -0.7 dB in the original code: 0.75 * 3276.8 of 65536 units)
-        public float OverpowerLimitDb = 0f;
+        // A signal is overpowering when it is stronger than the beacon minus this many FFT units (0.75 * 3276.8 of 65536,
+        // about -0.71 dBb, the original value, matches the QO-100 wideband web spectrum). Fixed by agreement. The
+        // exception for signals up to 333 kS (8PSK and higher) is covered by the 0.4 MHz minimum width in isOverPower;
+        // the modulation is not known here.
+        public const float OverpowerLimitUnits = -0.75f * 3276.8f;
 
         private const float DbbUnitsPerDb = 65536.0f * 0.052778f;     // see CalcDbb
 
         // FFT value above which a signal is overpowering (see isOverPower), 0 without beacon
         public int OverpowerLimit
         {
-            get { return beacon_strength > 0 ? beacon_strength + Convert.ToInt32(OverpowerLimitDb * DbbUnitsPerDb) : 0; }
+            get { return beacon_strength > 0 ? beacon_strength + Convert.ToInt32(OverpowerLimitUnits) : 0; }
         }
 
         // Signal strength in dB relative to the beacon (dBb), NaN as long as no beacon has been seen.
@@ -386,7 +388,7 @@ namespace opentuner
                     return false;
                 }
 
-                if (signal_strength > beacon_strength + OverpowerLimitDb * DbbUnitsPerDb)
+                if (signal_strength > beacon_strength + OverpowerLimitUnits)
                 {
                     return true;
                 }

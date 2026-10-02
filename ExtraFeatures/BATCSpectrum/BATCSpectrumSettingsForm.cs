@@ -57,7 +57,6 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             autoTuneTimeValue.Value = Math.Max(autoTuneTimeValue.Minimum, Math.Min(autoTuneTimeValue.Maximum, spectrumSettings.autoTuneTimeValue));
 
             overPowerIndicatorLayout.SelectedIndex = Math.Max(0, Math.Min(spectrumSettings.overPowerIndicatorLayout, overPowerIndicatorLayout.Items.Count - 1));
-            overPowerLimitValue.Value = Math.Max(overPowerLimitValue.Minimum, Math.Min(overPowerLimitValue.Maximum, Convert.ToDecimal(spectrumSettings.overPowerLimit)));
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
@@ -79,7 +78,6 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
             spectrumSettings.autoTuneTimeValue = Convert.ToInt32(autoTuneTimeValue.Value);
 
             spectrumSettings.overPowerIndicatorLayout = overPowerIndicatorLayout.SelectedIndex;
-            spectrumSettings.overPowerLimit = Convert.ToSingle(overPowerLimitValue.Value);
 
             DialogResult = DialogResult.OK;
             Close();

@@ -21,8 +21,5 @@ namespace opentuner.ExtraFeatures.BATCSpectrum
 
         // 0 classic, 1 classic + line, 2 box from top to line, 3 box from line to bottom, 4 line
         public int overPowerIndicatorLayout = 0;
-
-        // a signal wider than 0.4 MHz is marked when it is stronger than this many dB relative to the beacon (dBb)
-        public float overPowerLimit = 0.0f;
     }
 }
