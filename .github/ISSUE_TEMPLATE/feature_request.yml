@@ -7,6 +7,7 @@ body:
     attributes:
       label: Release you are using
       options:
+        - V0.B-dh1rk-beta8
         - V0.B-dh1rk-beta7
         - V0.B-dh1rk-beta6
         - V0.B-dh1rk-beta5
