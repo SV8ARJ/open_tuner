@@ -1,3 +1,14 @@
+## SV8ARJ mods
+
+### User-visible changes
+- **Resizable BATC spectrum display:** The spectrum view can be resized with the application window and splitter; its image scales to fit, and the band-plan display scales with it.
+- **Status-line transparency:** Adjust status-line transparency from the Settings dialog (0–90%). The setting is outside the UDP Streaming Settings panel and is saved with the other settings.
+- **Status-line hover behavior:** Moving the mouse over a status line makes it fully opaque; moving away restores the selected transparency.
+- **Automatic connection option:** A setting allows OpenTuner to connect automatically at startup.
+
+
+---
+
 # Open Tuner
 Open Windows Software for use with DATV tuner variants based on the Minitiouner range.
 

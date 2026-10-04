@@ -1,0 +1,67 @@
+Open Tuner - V0.B-dh1rk-beta8-picotuner-fix2 - SV8ARJ
+===========================================
+
+Community build: DH1RK's open_tuner V0.B-dh1rk-beta8 with PicoTuner fixes,
+a Tuner Control improvement and a bundled native library. No PicoTuner
+firmware change needed.
+
+Changes on top of V0.B-dh1rk-beta8
+----------------------------------
+1. PicoTuner not detected ("PicoTuner I2C device not found").
+   The BATC PicoTuner firmware (USB 2e8a:ba2c) enumerates as ONE composite
+   device whose role names ("BATC PicoTuner i2c" / "BATC PicoTuner TS") are
+   in the INTERFACE strings. The LibUsbDotNet 3.x port matched the device
+   product string ("BATC PicoTuner") which contains no role, so neither the
+   I2C nor the TS device was ever assigned. Detection now identifies the
+   PicoTuner by VID / strings / endpoint layout, classifies the two
+   interfaces by their endpoints (I2C = 0x81/0x02, TS = 0x83/0x84) and
+   claims both interfaces of the composite device. Works with both the BATC
+   composite firmware and older one-entry-per-interface firmwares.
+
+2. NullReferenceException in StreamInfoContainer.DrawContent on tuner lock
+   (the service name is null until the first SDT is parsed). The info line
+   over the video now handles that.
+
+3. DynamicPropertyGroups.GetValue could return null for a known key,
+   which is what fed bug 2 and could hit other consumers (MQTT, filenames).
+
+4. libusb-1.0.dll is now BUNDLED next to opentuner.exe. Plain beta8 crashes
+   with "Unable to load DLL 'libusb-1.0' or one of its dependencies" on PCs
+   that don't happen to have libusb installed (the LibUsbDotNet NuGet package
+   contains only managed code).
+
+5. Crash on disconnect/close ("ObjectDisposedException: Cannot access a
+   disposed object. Object name: 'LibUsbDotNet.Context'"), which terminated
+   the process: the LibUsbDotNet USB context was disposed in hw_close while
+   its internal HandleEvents thread was still running. The context now lives
+   for the lifetime of the process.
+
+6. Tuner Control: the mouse wheel over one digit of the big frequency now
+   steps THAT digit's place value (before: only the last digit of each group
+   of three, with SHIFT/CTRL multipliers). "Nim Freq (kHz)" is editable:
+   changing it recalculates the main frequency display (NIM frequency +
+   offset) at once.
+
+Requirements
+------------
+- Windows x64.
+- .NET 10 Desktop Runtime (same as plain beta8):
+  https://dotnet.microsoft.com/download/dotnet/10.0
+- The bundled ffmpeg\ folder is used for playback automatically. If the
+  first-run "playback paths" dialog appears, "Skip" is fine (or point it at
+  the included ffmpeg\ folder).
+- Only for MiniTiouner boards with FTDI chips (not PicoTuner): the FTDI
+  driver (ftd2xx.dll) must be installed - it comes with the FTDI driver.
+
+Install
+-------
+Unzip anywhere and run opentuner.exe. If you already have
+opentuner-V0.B-dh1rk-beta8-win-x64: overwrite opentuner.exe and
+opentuner.dll and ADD libusb-1.0.dll in that folder.
+
+Source / license
+----------------
+GPL-3.0 (see LICENSE). Full patched source: open_tuner-V0.B-dh1rk-beta8-
+picotuner-fix2-src.zip. Original software by Tom (ZR6TG) / tomvdb,
+modifications by DH1RK and this PicoTuner build. libusb-1.0.dll is from the
+libusb project (LGPL-2.1), https://libusb.info.
